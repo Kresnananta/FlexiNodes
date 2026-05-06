@@ -21,7 +21,7 @@ class _ChooseRolePageState extends State<ChooseRolePage> {
   static const Color primaryContainer = Color(0xFF22C55E);
   static const Color textMain = Color(0xFF161D16);
   static const Color textMuted = Color(0xFF3D4A3D);
-  static const Color outline = Color(0xFFBCCBB9);
+  // static const Color outline = Color(0xFFBCCBB9);
 
   @override
   Widget build(BuildContext context) {

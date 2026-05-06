@@ -3,24 +3,22 @@ import 'package:flutter/material.dart';
 class DriverHomePage extends StatelessWidget {
   const DriverHomePage({super.key});
 
-  static const Color background = Color(0xFFF3FCEF);
-  static const Color surface = Color(0xFFFFFFFF);
-  static const Color primary = Color(0xFF006E2F);
-  static const Color primaryContainer = Color(0xFF22C55E);
-  static const Color textMain = Color(0xFF161D16);
-  static const Color textMuted = Color(0xFF3D4A3D);
-  static const Color surfaceContainer = Color(0xFFE8F0E4);
-  static const Color surfaceContainerHigh = Color(0xFFDCE5D9);
-  static const Color blue = Color(0xFF39B8FD);
-  static const Color blueDark = Color(0xFF006591);
-  static const Color orange = Color(0xFFEF9900);
-  static const Color red = Color(0xFFBA1A1A);
+  static const bg = Color(0xFFF3FCEF);
+  static const surface = Colors.white;
+  static const primary = Color(0xFF006E2F);
+  static const green = Color(0xFF22C55E);
+  static const text = Color(0xFF161D16);
+  static const muted = Color(0xFF3D4A3D);
+  static const border = Color(0xFFDCE5D9);
+  static const blue = Color(0xFF006591);
+  static const orange = Color(0xFFEF9900);
+  static const red = Color(0xFFBA1A1A);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: background,
-      bottomNavigationBar: const _DriverBottomNav(selectedIndex: 0),
+      backgroundColor: bg,
+      bottomNavigationBar: const _BottomNav(),
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
@@ -29,202 +27,64 @@ class DriverHomePage extends StatelessWidget {
               automaticallyImplyLeading: false,
               backgroundColor: surface,
               surfaceTintColor: Colors.transparent,
-              elevation: 1,
-              shadowColor: Colors.black.withOpacity(0.16),
-              toolbarHeight: 76,
-              titleSpacing: 20,
+              elevation: 0.5,
+              toolbarHeight: 62,
+              titleSpacing: 16,
               title: Row(
                 children: [
-                  const _DriverAvatar(),
+                  const CircleAvatar(
+                    radius: 21,
+                    backgroundColor: primary,
+                    child: Icon(Icons.person, color: Colors.white, size: 22),
+                  ),
+                  const SizedBox(width: 12),
                   const Expanded(
                     child: Text(
                       'Flexi Nodes',
-                      textAlign: TextAlign.center,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: primaryContainer,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.3,
+                        color: green,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                   ),
                   IconButton(
                     onPressed: () => Navigator.pushNamed(context, '/notifications'),
-                    icon: const Icon(Icons.notifications_none_outlined, color: primaryContainer, size: 30),
-                  )
+                    icon: const Icon(Icons.notifications_none, color: green),
+                  ),
                 ],
               ),
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 34, 20, 30),
+                padding: const EdgeInsets.fromLTRB(16, 18, 16, 22),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Hello, Rizky',
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: textMain,
-                                  fontSize: 22,
-                                  height: 1.1,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -0.7,
-                                ),
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                "Ready for today's deliveries?",
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: textMuted,
-                                  fontSize: 15,
-                                  height: 1.25,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          margin: const EdgeInsets.only(top: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFDDF6DF),
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: const Color(0xFF9AD9A1)),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.circle, size: 12, color: Color(0xFF67B56B)),
-                              SizedBox(width: 8),
-                              Text(
-                                'Online',
-                                style: TextStyle(
-                                  color: primary,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                    const _DriverHeader(),
+                    const SizedBox(height: 18),
+                    const _StatsGrid(),
+                    const SizedBox(height: 24),
+                    _SectionHeader(
+                      title: 'Active Route',
+                      action: 'View Map',
+                      onTap: () => Navigator.pushNamed(context, '/rerouted-navigation'),
                     ),
-                    const SizedBox(height: 30),
-                    const Row(
-                      children: [
-                        Expanded(
-                          child: _StatCard(
-                            icon: Icons.inventory_2_outlined,
-                            iconColor: blueDark,
-                            iconBg: Color(0xFFE5F4FF),
-                            badge: '70%',
-                            value: '14',
-                            total: '/20',
-                            label: 'Deliveries Today',
-                            progress: 0.70,
-                            progressColor: primary,
-                          ),
-                        ),
-                        SizedBox(width: 16),
-                        Expanded(
-                          child: _StatCard(
-                            icon: Icons.access_time,
-                            iconColor: red,
-                            iconBg: Color(0xFFFFECEA),
-                            badge: 'Action Req.',
-                            badgeColor: Color(0xFFFFECEA),
-                            badgeTextColor: red,
-                            value: '2',
-                            label: 'Delayed Parcels',
-                            progress: null,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 38),
-                    Row(
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            'Active Route',
-                            style: TextStyle(
-                              color: textMain,
-                              fontSize: 30,
-                              height: 1.1,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.pushNamed(context, '/rerouted-navigation'),
-                          child: const Text(
-                            'View Map',
-                            style: TextStyle(
-                              color: primary,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        )
-                      ],
-                    ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     const _ActiveRouteCard(),
-                    const SizedBox(height: 38),
+                    const SizedBox(height: 24),
                     const Text(
                       'Quick Actions',
                       style: TextStyle(
-                        color: textMain,
-                        fontSize: 30,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.5,
+                        color: text,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _ActionTile(
-                            icon: Icons.archive_outlined,
-                            iconColor: blueDark,
-                            iconBg: Color(0xFFE5F4FF),
-                            label: 'Deliveries',
-                            onTap: () => Navigator.pushNamed(context, '/delivery-details'),
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: _ActionTile(
-                            icon: Icons.explore_outlined,
-                            iconColor: primary,
-                            iconBg: Color(0xFFDDF6DF),
-                            label: 'Navigation',
-                            onTap: () => Navigator.pushNamed(context, '/rerouted-navigation'),
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: _ActionTile(
-                            icon: Icons.account_balance_wallet_outlined,
-                            iconColor: Color(0xFF855300),
-                            iconBg: Color(0xFFFFF1D8),
-                            label: 'Earnings',
-                            onTap: () {},
-                          ),
-                        ),
-                      ],
-                    ),
+                    const SizedBox(height: 12),
+                    const _QuickActions(),
                   ],
                 ),
               ),
@@ -236,24 +96,106 @@ class DriverHomePage extends StatelessWidget {
   }
 }
 
-class _DriverAvatar extends StatelessWidget {
-  const _DriverAvatar();
+class _DriverHeader extends StatelessWidget {
+  const _DriverHeader();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 52,
-      height: 52,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: DriverHomePage.primary.withOpacity(0.4), width: 2),
-        gradient: const LinearGradient(
-          colors: [Color(0xFFB9DDD0), Color(0xFF006E2F)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    return Row(
+      children: [
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Hello, Rizky',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: DriverHomePage.text,
+                  fontSize: 27,
+                  height: 1.1,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              SizedBox(height: 6),
+              Text(
+                "Ready for today's deliveries?",
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: DriverHomePage.muted,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-      child: const Icon(Icons.person, color: Colors.white, size: 30),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+          decoration: BoxDecoration(
+            color: const Color(0xFFDDF6DF),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.circle, color: Color(0xFF67B56B), size: 9),
+              SizedBox(width: 6),
+              Text(
+                'Online',
+                style: TextStyle(
+                  color: DriverHomePage.primary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatsGrid extends StatelessWidget {
+  const _StatsGrid();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      children: [
+        Expanded(
+          child: _StatCard(
+            icon: Icons.inventory_2_outlined,
+            iconColor: DriverHomePage.blue,
+            iconBg: Color(0xFFE5F4FF),
+            badge: '70%',
+            badgeColor: Color(0xFFE5F4FF),
+            badgeTextColor: DriverHomePage.blue,
+            value: '14',
+            total: '/20',
+            label: 'Deliveries Today',
+            progress: 0.7,
+          ),
+        ),
+        SizedBox(width: 10),
+        Expanded(
+          child: _StatCard(
+            icon: Icons.access_time,
+            iconColor: DriverHomePage.red,
+            iconBg: Color(0xFFFFECEA),
+            badge: 'Action',
+            badgeColor: Color(0xFFFFECEA),
+            badgeTextColor: DriverHomePage.red,
+            value: '2',
+            total: null,
+            label: 'Delayed Parcels',
+            progress: null,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -264,36 +206,34 @@ class _StatCard extends StatelessWidget {
     required this.iconColor,
     required this.iconBg,
     required this.badge,
-    this.badgeColor,
-    this.badgeTextColor,
+    required this.badgeColor,
+    required this.badgeTextColor,
     required this.value,
-    this.total,
+    required this.total,
     required this.label,
     required this.progress,
-    this.progressColor,
   });
 
   final IconData icon;
   final Color iconColor;
   final Color iconBg;
   final String badge;
-  final Color? badgeColor;
-  final Color? badgeTextColor;
+  final Color badgeColor;
+  final Color badgeTextColor;
   final String value;
   final String? total;
   final String label;
   final double? progress;
-  final Color? progressColor;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 188,
-      padding: const EdgeInsets.all(26),
+      constraints: const BoxConstraints(minHeight: 136),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: DriverHomePage.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: DriverHomePage.surfaceContainerHigh),
+        border: Border.all(color: DriverHomePage.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -301,75 +241,122 @@ class _StatCard extends StatelessWidget {
           Row(
             children: [
               CircleAvatar(
-                radius: 22,
+                radius: 18,
                 backgroundColor: iconBg,
-                child: Icon(icon, color: iconColor, size: 24),
+                child: Icon(icon, color: iconColor, size: 19),
               ),
               const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
-                decoration: BoxDecoration(
-                  color: badgeColor ?? const Color(0xFFE5F4FF),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  badge,
-                  style: TextStyle(
-                    color: badgeTextColor ?? DriverHomePage.blueDark,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: badgeColor,
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                  child: FittedBox(
+                    child: Text(
+                      badge,
+                      style: TextStyle(
+                        color: badgeTextColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
                 ),
-              )
+              ),
             ],
           ),
-          const Spacer(),
+          const SizedBox(height: 17),
           Text.rich(
             TextSpan(
               children: [
                 TextSpan(
                   text: value,
                   style: const TextStyle(
-                    color: DriverHomePage.textMain,
-                    fontSize: 30,
-                    fontWeight: FontWeight.w600,
+                    color: DriverHomePage.text,
+                    fontSize: 25,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
                 if (total != null)
                   TextSpan(
                     text: total!,
                     style: const TextStyle(
-                      color: DriverHomePage.textMuted,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w400,
+                      color: DriverHomePage.muted,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 3),
           Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: DriverHomePage.textMuted,
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
+              color: DriverHomePage.muted,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
             ),
           ),
           if (progress != null) ...[
-            const SizedBox(height: 18),
+            const SizedBox(height: 12),
             ClipRRect(
               borderRadius: BorderRadius.circular(999),
               child: LinearProgressIndicator(
                 value: progress,
-                minHeight: 8,
-                backgroundColor: DriverHomePage.surfaceContainerHigh,
-                valueColor: AlwaysStoppedAnimation<Color>(progressColor ?? DriverHomePage.primary),
+                minHeight: 6,
+                backgroundColor: DriverHomePage.border,
+                valueColor: const AlwaysStoppedAnimation<Color>(DriverHomePage.primary),
               ),
             ),
           ],
         ],
       ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.title,
+    required this.action,
+    required this.onTap,
+  });
+
+  final String title;
+  final String action;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              color: DriverHomePage.text,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        TextButton(
+          onPressed: onTap,
+          child: Text(
+            action,
+            style: const TextStyle(
+              color: DriverHomePage.primary,
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -381,31 +368,31 @@ class _ActiveRouteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: DriverHomePage.surface,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: () => Navigator.pushNamed(context, '/rerouted-navigation'),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: DriverHomePage.textMuted.withOpacity(0.3)),
+            border: Border.all(color: DriverHomePage.border),
+            borderRadius: BorderRadius.circular(16),
           ),
           clipBehavior: Clip.antiAlias,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
-                height: 228,
+                height: 150,
                 width: double.infinity,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    const _RouteMapPreview(),
+                    const _MiniMap(),
                     Positioned(
-                      top: 14,
-                      left: 16,
+                      top: 10,
+                      left: 10,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        constraints: const BoxConstraints(maxWidth: 220),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                         decoration: BoxDecoration(
                           color: DriverHomePage.orange,
                           borderRadius: BorderRadius.circular(999),
@@ -413,14 +400,18 @@ class _ActiveRouteCard extends StatelessWidget {
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.warning_amber, size: 20, color: Color(0xFF5C3800)),
-                            SizedBox(width: 8),
-                            Text(
-                              'Heavy traffic detected',
-                              style: TextStyle(
-                                color: Color(0xFF5C3800),
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
+                            Icon(Icons.warning_amber, size: 16, color: Color(0xFF5C3800)),
+                            SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                'Heavy traffic detected',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Color(0xFF5C3800),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w900,
+                                ),
                               ),
                             ),
                           ],
@@ -431,64 +422,21 @@ class _ActiveRouteCard extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(26, 26, 26, 26),
+                padding: const EdgeInsets.all(14),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: DriverHomePage.surfaceContainer,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: const Text(
-                                  'Package SD1440-Y',
-                                  style: TextStyle(
-                                    color: DriverHomePage.textMuted,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 18),
-                              const Text(
-                                'Andika Sujanto',
-                                style: TextStyle(
-                                  color: DriverHomePage.textMain,
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: -0.3,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'Jl. Sudirman Kav 52-53, Senayan,...',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: DriverHomePage.textMuted,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                            ],
-                          ),
+                          child: _RouteText(),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
                         Container(
-                          width: 74,
-                          height: 78,
+                          width: 58,
+                          height: 62,
                           decoration: BoxDecoration(
-                            color: DriverHomePage.surfaceContainer.withOpacity(0.8),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: DriverHomePage.surfaceContainerHigh),
+                            color: const Color(0xFFE8F0E4),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Center(
                             child: Text.rich(
@@ -497,18 +445,17 @@ class _ActiveRouteCard extends StatelessWidget {
                                   TextSpan(
                                     text: '12\n',
                                     style: TextStyle(
-                                      color: DriverHomePage.textMain,
-                                      fontSize: 26,
-                                      fontWeight: FontWeight.w700,
-                                      height: 1.1,
+                                      color: DriverHomePage.text,
+                                      fontSize: 21,
+                                      fontWeight: FontWeight.w900,
+                                      height: 1.0,
                                     ),
                                   ),
                                   TextSpan(
                                     text: 'mins',
                                     style: TextStyle(
-                                      color: DriverHomePage.textMuted,
-                                      fontSize: 16,
-                                      height: 1.25,
+                                      color: DriverHomePage.muted,
+                                      fontSize: 11,
                                     ),
                                   ),
                                 ],
@@ -519,51 +466,46 @@ class _ActiveRouteCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 14),
                     Row(
                       children: [
                         Expanded(
                           child: SizedBox(
-                            height: 60,
+                            height: 42,
                             child: ElevatedButton.icon(
                               onPressed: () => Navigator.pushNamed(context, '/rerouted-navigation'),
-                              icon: const Icon(Icons.navigation, size: 25),
+                              icon: const Icon(Icons.navigation, size: 17),
                               label: const Text('Start Route'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: DriverHomePage.primary,
                                 foregroundColor: Colors.white,
-                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                textStyle: const TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w800,
-                                ),
+                                textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w900),
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: SizedBox(
-                            height: 60,
+                            height: 42,
                             child: OutlinedButton.icon(
                               onPressed: () {},
-                              icon: const Icon(Icons.phone_outlined, size: 25),
+                              icon: const Icon(Icons.phone_outlined, size: 17),
                               label: const Text('Call'),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: DriverHomePage.textMain,
-                                side: BorderSide(color: DriverHomePage.textMuted.withOpacity(0.35)),
+                                foregroundColor: DriverHomePage.text,
+                                side: BorderSide(color: DriverHomePage.muted.withOpacity(0.3)),
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                textStyle: const TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w800,
-                                ),
+                                textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w900),
                               ),
                             ),
                           ),
                         ),
                       ],
-                    )
+                    ),
                   ],
                 ),
               ),
@@ -575,196 +517,215 @@ class _ActiveRouteCard extends StatelessWidget {
   }
 }
 
-class _RouteMapPreview extends StatelessWidget {
-  const _RouteMapPreview();
-
+class _RouteText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _RouteMapPainter(),
-      child: Container(),
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SmallTag(text: 'Package SD1440-Y'),
+        SizedBox(height: 10),
+        Text(
+          'Andika Sujanto',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: DriverHomePage.text,
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        SizedBox(height: 4),
+        Text(
+          'Jl. Sudirman Kav 52-53, Senayan,...',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: DriverHomePage.muted,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _RouteMapPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFF22303A));
+class _SmallTag extends StatelessWidget {
+  const _SmallTag({required this.text});
 
-    final blockPaint = Paint()..color = Colors.white.withOpacity(0.09);
-    for (double x = -40; x < size.width; x += 70) {
-      canvas.drawRect(Rect.fromLTWH(x, 0, 38, size.height), blockPaint);
-    }
-
-    final roadPaint = Paint()
-      ..color = Colors.white.withOpacity(0.18)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    for (double y = 20; y < size.height; y += 38) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y + 60), roadPaint);
-    }
-    for (double x = 15; x < size.width; x += 52) {
-      canvas.drawLine(Offset(x, 0), Offset(x + 42, size.height), roadPaint);
-    }
-
-    final route = Path()
-      ..moveTo(size.width * 0.58, 0)
-      ..cubicTo(size.width * 0.58, 45, size.width * 0.47, 50, size.width * 0.52, 86)
-      ..cubicTo(size.width * 0.57, 124, size.width * 0.45, 130, size.width * 0.42, 160)
-      ..cubicTo(size.width * 0.38, 198, size.width * 0.48, 205, size.width * 0.45, size.height);
-
-    canvas.drawPath(
-      route,
-      Paint()
-        ..color = const Color(0xFF52FF3E).withOpacity(0.9)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 7
-        ..strokeCap = StrokeCap.round,
-    );
-
-    canvas.drawCircle(
-      Offset(size.width * 0.58, 18),
-      14,
-      Paint()..color = DriverHomePage.blue,
-    );
-    canvas.drawCircle(
-      Offset(size.width * 0.58, 18),
-      6,
-      Paint()..color = Colors.white,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _ActionTile extends StatelessWidget {
-  const _ActionTile({
-    required this.icon,
-    required this.iconColor,
-    required this.iconBg,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final Color iconColor;
-  final Color iconBg;
-  final String label;
-  final VoidCallback onTap;
+  final String text;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: DriverHomePage.surface,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          height: 138,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: DriverHomePage.surfaceContainerHigh),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircleAvatar(
-                radius: 32,
-                backgroundColor: iconBg,
-                child: Icon(icon, color: iconColor, size: 30),
-              ),
-              const SizedBox(height: 18),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: DriverHomePage.textMain,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F0E4),
+        borderRadius: BorderRadius.circular(7),
+      ),
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: DriverHomePage.muted,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
         ),
       ),
     );
   }
 }
 
-class _DriverBottomNav extends StatelessWidget {
-  const _DriverBottomNav({required this.selectedIndex});
-
-  final int selectedIndex;
-
-  static const items = [
-    (Icons.home_outlined, 'Home'),
-    (Icons.inventory_2_outlined, 'Orders'),
-    (Icons.map_outlined, 'Map'),
-    (Icons.confirmation_num_outlined, 'Vouchers'),
-    (Icons.person_outline, 'Profile'),
-  ];
+class _MiniMap extends StatelessWidget {
+  const _MiniMap();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 96,
-      decoration: BoxDecoration(
-        color: DriverHomePage.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 14,
-            offset: const Offset(0, -5),
-          ),
-        ],
+    return CustomPaint(painter: _MiniMapPainter());
+  }
+}
+
+class _MiniMapPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFF22303A));
+
+    final road = Paint()
+      ..color = Colors.white.withOpacity(0.18)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6;
+
+    for (double x = -20; x < size.width; x += 46) {
+      canvas.drawLine(Offset(x, 0), Offset(x + 40, size.height), road);
+    }
+    for (double y = 10; y < size.height; y += 34) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y + 32), road);
+    }
+
+    final route = Path()
+      ..moveTo(size.width * 0.62, -5)
+      ..cubicTo(size.width * 0.55, 40, size.width * 0.45, 50, size.width * 0.50, 80)
+      ..cubicTo(size.width * 0.56, 112, size.width * 0.40, 118, size.width * 0.42, size.height + 5);
+
+    canvas.drawPath(
+      route,
+      Paint()
+        ..color = const Color(0xFF52FF3E)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 5
+        ..strokeCap = StrokeCap.round,
+    );
+
+    canvas.drawCircle(Offset(size.width * 0.62, 16), 11, Paint()..color = DriverHomePage.blue);
+    canvas.drawCircle(Offset(size.width * 0.62, 16), 5, Paint()..color = Colors.white);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _QuickActions extends StatelessWidget {
+  const _QuickActions();
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      _Action(Icons.archive_outlined, 'Deliveries', DriverHomePage.blue, const Color(0xFFE5F4FF), '/delivery-details'),
+      _Action(Icons.explore_outlined, 'Navigation', DriverHomePage.primary, const Color(0xFFDDF6DF), '/rerouted-navigation'),
+      _Action(Icons.account_balance_wallet_outlined, 'Earnings', const Color(0xFF855300), const Color(0xFFFFF1D8), null),
+    ];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: items.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 8,
+        mainAxisExtent: 94,
       ),
-      child: Row(
-        children: List.generate(items.length, (index) {
-          final bool active = index == selectedIndex;
-          final item = items[index];
-          return Expanded(
-            child: InkWell(
-              onTap: () {
-                if (index == 0) return;
-                final routes = ['/driver-home', '/delivery-details', '/rerouted-navigation', '/vouchers', '/profile'];
-                Navigator.pushNamed(context, routes[index]);
-              },
+      itemBuilder: (context, index) {
+        final item = items[index];
+        return Material(
+          color: DriverHomePage.surface,
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            onTap: () {
+              if (item.route != null) Navigator.pushNamed(context, item.route!);
+            },
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 10),
+              decoration: BoxDecoration(
+                border: Border.all(color: DriverHomePage.border),
+                borderRadius: BorderRadius.circular(14),
+              ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    width: 54,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: active ? const Color(0xFFE8F7ED) : Colors.transparent,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Icon(
-                      item.$1,
-                      color: active ? DriverHomePage.primaryContainer : const Color(0xFF9AA7B8),
-                      size: 28,
-                    ),
+                  CircleAvatar(
+                    radius: 21,
+                    backgroundColor: item.bg,
+                    child: Icon(item.icon, color: item.color, size: 21),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 8),
                   Text(
-                    item.$2,
-                    style: TextStyle(
-                      color: active ? DriverHomePage.primary : const Color(0xFF8FA0B2),
-                      fontSize: 14,
-                      fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                    item.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: DriverHomePage.text,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ],
               ),
             ),
-          );
-        }),
-      ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _Action {
+  const _Action(this.icon, this.label, this.color, this.bg, this.route);
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final Color bg;
+  final String? route;
+}
+
+class _BottomNav extends StatelessWidget {
+  const _BottomNav();
+
+  @override
+  Widget build(BuildContext context) {
+    return BottomNavigationBar(
+      currentIndex: 0,
+      type: BottomNavigationBarType.fixed,
+      backgroundColor: Colors.white,
+      selectedItemColor: DriverHomePage.primary,
+      unselectedItemColor: const Color(0xFF8FA0B2),
+      selectedFontSize: 11,
+      unselectedFontSize: 10,
+      iconSize: 22,
+      onTap: (index) {
+        final routes = ['/driver-home', '/delivery-details', '/rerouted-navigation', '/vouchers', '/profile'];
+        if (index != 0) Navigator.pushNamed(context, routes[index]);
+      },
+      items: const [
+        BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Home'),
+        BottomNavigationBarItem(icon: Icon(Icons.inventory_2_outlined), label: 'Orders'),
+        BottomNavigationBarItem(icon: Icon(Icons.map_outlined), label: 'Map'),
+        BottomNavigationBarItem(icon: Icon(Icons.confirmation_num_outlined), label: 'Voucher'),
+        BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
+      ],
     );
   }
 }
