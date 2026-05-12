@@ -34,14 +34,17 @@
 
 ## 🛠️ Next Steps (Integration Phase)
 
-### 1. Logic Transition
-- [ ] **API Integration**: Replace `DemoDeliveryStore` hardcoded data with actual `http` calls to the Node.js backend.
-- [ ] **Firestore Streaming**: Implement `StreamBuilder` to listen for real-time package status changes from the backend's Gemini analysis.
-- [ ] **Live Maps**: Replace `CustomPainter` mini-maps with actual `google_maps_flutter` integration.
+### 1. Logic Transition (Selesai)
+- [x] **API Integration**: Integrasi endpoint `/simulate-traffic` dan `/accept-offer` menggunakan `http` package.
+- [x] **Firestore Streaming**: Menggunakan `StreamBuilder` dan listener untuk memantau koleksi `deliveries` dan `AI_message` secara real-time.
+- [ ] **Live Maps**: (Tertunda) Replace `CustomPainter` mini-maps with actual `google_maps_flutter` integration.
 
-### 2. Authentication
-- [ ] Implement actual Firebase Auth or custom JWT authentication flow.
-- [ ] Persistent user sessions.
+### 2. Authentication (Selesai)
+- [x] Menggunakan **Firebase Anonymous Authentication** agar lolos dari `firestore.rules`.
+
+### 3. Fase Selanjutnya: Interaksi Pengguna
+- [ ] **Chatbot UI Input**: Halaman `FlexiAiChatPage` saat ini hanya menampilkan log dari AI. Kita perlu menambahkan `TextField` di bagian bawah layar agar user bisa berinteraksi bolak-balik dengan Gemini.
+- [ ] Loading states and error handling for network calls.
 
 ### 3. Polish
 - [ ] Form validation for Sign In/Register.

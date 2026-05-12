@@ -1,0 +1,19 @@
+# Logs
+*-debug.log
+.log
+
+# Firebase
+.firebase/
+firebase-export-*/
+firebase-data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Flutter (if root is used)
+**/build/
+**/.dart_tool/
+**/.packages
+**/.flutter-plugins*
+**/generated_plugin_registrant.*

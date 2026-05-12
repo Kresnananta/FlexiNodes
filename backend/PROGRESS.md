@@ -27,7 +27,13 @@
 
 ## 🛠️ Pending / In-Progress
 
-### 1. Data Sources
+### 5. Keamanan & Akses (Selesai)
+- [x] **TDD Firestore Rules**: Mengimplementasikan `firestore.rules` ketat untuk membatasi akses baca/tulis berdasarkan UID dan peran (`receiver` / `driver`).
+- [x] **Anonymous Auth**: Frontend terkoneksi dengan Backend menggunakan Anonymous Auth Firebase.
+
+### 6. Fase Selanjutnya: Fitur Interaktif
+- [ ] **Chatbot UI**: Mengubah halaman `FlexiAiChatPage` di frontend agar memiliki kolom teks input (saat ini hanya berfungsi sebagai *log watcher*).
+- [ ] **Google Maps Distance Matrix**: (Backend) Mengganti formula Haversine dengan API Google Maps untuk kalkulasi akurasi jarak dan ETA.### 1. Data Sources
 - [ ] **Live Traffic Integration**: Currently relies on manual/external updates to Firestore fields. Need integration with Google Maps/Waze API.
 - [ ] **Node Management API**: CRUD endpoints for managing partner nodes (currently assumes nodes exist in Firestore).
 
