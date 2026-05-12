@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../data/demo_delivery_store.dart';
 import 'flexi_ui.dart';
 
 class FlexiPickupOfferPage extends StatelessWidget {
@@ -6,124 +8,144 @@ class FlexiPickupOfferPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: FlexiColors.bg,
-      appBar: const FlexiAppBar(title: 'Flexi Offer'),
-      body: SafeArea(
-        top: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
-          children: [
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: FlexiColors.surface,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: FlexiColors.border),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  CircleAvatar(
-                    backgroundColor: FlexiColors.lightGreen,
-                    child: Icon(Icons.notifications_active_outlined, color: FlexiColors.primary),
+    return AnimatedBuilder(
+      animation: demoDeliveryStore,
+      builder: (context, _) {
+        final store = demoDeliveryStore;
+
+        return Scaffold(
+          backgroundColor: FlexiColors.bg,
+          appBar: const FlexiAppBar(title: 'Flexi Offer'),
+          body: SafeArea(
+            top: false,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: FlexiColors.surface,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: FlexiColors.border),
                   ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(
-                            text: 'Flexi Pickup Offer\n',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
-                          ),
-                          TextSpan(
-                            text:
-                                'Your courier is delayed by traffic. Pick up at Indomaret Ahmad Yani, 75m away, and get Rp5.000 cashback.',
-                            style: TextStyle(fontSize: 12.5, color: FlexiColors.muted, height: 1.35),
-                          ),
-                        ],
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const CircleAvatar(
+                        backgroundColor: FlexiColors.lightGreen,
+                        child: Icon(Icons.notifications_active_outlined, color: FlexiColors.primary),
                       ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            const MiniMap(height: 180, showNode: true, showCustomer: true, routeToNode: true),
-            const SizedBox(height: 18),
-            FlexiCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const StatusPill(
-                    icon: Icons.auto_awesome,
-                    label: 'AI Recommended',
-                    color: FlexiColors.blue,
-                    background: FlexiColors.blueSoft,
-                  ),
-                  const SizedBox(height: 14),
-                  const Text(
-                    'Indomaret Ahmad Yani',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'A nearby partner node selected by Flexi AI.',
-                    style: TextStyle(color: FlexiColors.muted, fontSize: 13),
-                  ),
-                  const SizedBox(height: 16),
-                  const _OfferStats(),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: FlexiColors.lightGreen,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.verified_user_outlined, color: FlexiColors.primary, size: 22),
-                        SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'OTP handover protected. Your package can only be released using your pickup code.',
-                            style: TextStyle(color: FlexiColors.primary, fontSize: 12.5, height: 1.35),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text.rich(
+                          TextSpan(
+                            children: [
+                              const TextSpan(
+                                text: 'Flexi Pickup Offer\n',
+                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+                              ),
+                              TextSpan(
+                                text:
+                                    'Your courier is delayed by traffic. Pick up at ${store.nodeName}, ${store.nodeDistance} away, and get ${store.formattedCashback} cashback.',
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  color: FlexiColors.muted,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 18),
-                  FlexiPrimaryButton(
-                    label: 'Accept & Pick Up',
-                    icon: Icons.check_circle_outline,
-                    onPressed: () => Navigator.pushNamed(context, '/confirmation'),
+                ),
+                const SizedBox(height: 18),
+                const MiniMap(height: 180, showNode: true, showCustomer: true, routeToNode: true),
+                const SizedBox(height: 18),
+                FlexiCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const StatusPill(
+                        icon: Icons.auto_awesome,
+                        label: 'AI Recommended',
+                        color: FlexiColors.blue,
+                        background: FlexiColors.blueSoft,
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        store.nodeName,
+                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'A nearby partner node selected by Flexi AI.',
+                        style: TextStyle(color: FlexiColors.muted, fontSize: 13),
+                      ),
+                      const SizedBox(height: 16),
+                      _OfferStats(store: store),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: FlexiColors.lightGreen,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.verified_user_outlined, color: FlexiColors.primary, size: 22),
+                            SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'OTP handover protected. Your package can only be released using your pickup code.',
+                                style: TextStyle(
+                                  color: FlexiColors.primary,
+                                  fontSize: 12.5,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      FlexiPrimaryButton(
+                        label: store.offerAccepted ? 'Offer Accepted' : 'Accept & Pick Up',
+                        icon: Icons.check_circle_outline,
+                        onPressed: () {
+                          store.acceptPickupOffer();
+                          Navigator.pushNamed(context, '/confirmation');
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      FlexiOutlineButton(
+                        label: 'Keep Door-to-Door Delivery',
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 10),
-                  FlexiOutlineButton(
-                    label: 'Keep Door-to-Door Delivery',
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
 
 class _OfferStats extends StatelessWidget {
-  const _OfferStats();
+  const _OfferStats({required this.store});
+
+  final DemoDeliveryStore store;
 
   @override
   Widget build(BuildContext context) {
     final items = [
-      _Stat(Icons.place_outlined, '75m', 'Distance'),
-      _Stat(Icons.directions_walk, '2 min', 'Walk'),
-      _Stat(Icons.payments_outlined, 'Rp5k', 'Cashback'),
+      _Stat(Icons.place_outlined, store.nodeDistance, 'Distance'),
+      _Stat(Icons.directions_walk, store.walkingTime, 'Walk'),
+      _Stat(Icons.payments_outlined, store.formattedCashback, 'Cashback'),
     ];
 
     return Row(
@@ -132,7 +154,7 @@ class _OfferStats extends StatelessWidget {
             (item) => Expanded(
               child: Container(
                 margin: const EdgeInsets.only(right: 8),
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
                 decoration: BoxDecoration(
                   color: FlexiColors.bg,
                   borderRadius: BorderRadius.circular(12),
@@ -143,7 +165,9 @@ class _OfferStats extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       item.value,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
                     ),
                     const SizedBox(height: 2),
                     Text(

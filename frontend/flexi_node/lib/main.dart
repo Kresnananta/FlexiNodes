@@ -4,6 +4,7 @@ import 'screens/choose_role_page.dart';
 import 'screens/confirmation_page.dart';
 import 'screens/delivery_details_page.dart';
 import 'screens/driver_home_page.dart';
+import 'screens/flexi_ai_chat_page.dart';
 import 'screens/flexi_pickup_offer_page.dart';
 import 'screens/landing_page.dart';
 import 'screens/nearby_nodes_page.dart';
@@ -44,6 +45,7 @@ class FlexiNodesApp extends StatelessWidget {
         '/receiver-home': (context) => const ReceiverHomePage(),
         '/driver-home': (context) => const DriverHomePage(),
 
+        '/ai-chat': (context) => const FlexiAiChatPage(),
         '/tracking': (context) => const TrackingPage(),
         '/flexi-offer': (context) => const FlexiPickupOfferPage(),
         '/nearby-nodes': (context) => const NearbyNodesPage(),
