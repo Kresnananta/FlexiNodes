@@ -3,17 +3,35 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Aturan untuk Demo: Hanya user yang sudah login (auth != null) yang bisa akses
-    // Di produksi, aturan ini harus lebih ketat (misal: kurir hanya bisa lihat paketnya sendiri).
-    
+    // DELIVERIES: Hanya user (receiver atau driver) yang relevan yang boleh membaca.
     match /deliveries/{deliveryId} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null && (
+        resource.data.receiverId == request.auth.uid || 
+        resource.data.driverId == request.auth.uid
+      );
+      // Untuk demo, kita batasi write juga hanya untuk user yang bersangkutan
+      allow write: if request.auth != null && (
+        resource.data.receiverId == request.auth.uid || 
+        resource.data.driverId == request.auth.uid
+      );
     }
     
+    // NODES: Semua user terotentikasi bisa membaca, tidak ada yang bisa menulis dari client.
     match /nodes/{nodeId} {
       allow read: if request.auth != null;
-      // Hanya backend (Admin SDK) atau peran admin yang boleh write data node
       allow write: if false; 
+    }
+
+    // OFFERS: Hanya penerima yang bisa melihat penawarannya. Write hanya dari backend.
+    match /offers/{offerId} {
+      allow read: if request.auth != null && resource.data.receiverId == request.auth.uid;
+      allow write: if false;
+    }
+
+    // AI_MESSAGE: Hanya penerima yang bisa membaca riwayat chatnya. Write dari backend (via /chat API).
+    match /AI_message/{msgId} {
+      allow read: if request.auth != null && resource.data.receiverId == request.auth.uid;
+      allow write: if false;
     }
   }
 }
