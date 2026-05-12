@@ -19,7 +19,37 @@ import 'screens/sign_in_page.dart';
 import 'screens/tracking_page.dart';
 import 'screens/vouchers_page.dart';
 
-void main() {
+import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Dummy options for local emulator
+  const emulatorOptions = FirebaseOptions(
+    apiKey: 'demo-api-key',
+    appId: '1:1234567890:web:1234567890',
+    messagingSenderId: '1234567890',
+    projectId: 'demo-no-project',
+  );
+
+  await Firebase.initializeApp(options: emulatorOptions);
+
+  // Connect to local emulators
+  const String host = kIsWeb ? '127.0.0.1' : '10.0.2.2';
+  FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);
+  await FirebaseAuth.instance.useAuthEmulator(host, 9099);
+
+  // Anonymous login for Demo
+  try {
+    await FirebaseAuth.instance.signInAnonymously();
+    print("Signed in anonymously: ${FirebaseAuth.instance.currentUser?.uid}");
+  } catch (e) {
+    print("Error signing in anonymously: $e");
+  }
+
   runApp(const FlexiNodesApp());
 }
 
