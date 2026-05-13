@@ -17,3 +17,6 @@ Thumbs.db
 **/.packages
 **/.flutter-plugins*
 **/generated_plugin_registrant.*
+
+# Frontend Maps API
+frontend/.env
