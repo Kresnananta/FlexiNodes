@@ -3,8 +3,33 @@ import 'package:flutter/material.dart';
 import '../data/demo_delivery_store.dart';
 import 'flexi_ui.dart';
 
-class FlexiAiChatPage extends StatelessWidget {
+class FlexiAiChatPage extends StatefulWidget {
   const FlexiAiChatPage({super.key});
+
+  @override
+  State<FlexiAiChatPage> createState() => _FlexiAiChatPageState();
+}
+
+class _FlexiAiChatPageState extends State<FlexiAiChatPage> {
+  final ScrollController _scrollController = ScrollController();
+  final TextEditingController _textController = TextEditingController();
+
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _textController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -12,6 +37,9 @@ class FlexiAiChatPage extends StatelessWidget {
       animation: demoDeliveryStore,
       builder: (context, _) {
         final store = demoDeliveryStore;
+
+        // Auto-scroll trick whenever state changes (like new message)
+        WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
 
         return Scaffold(
           backgroundColor: FlexiColors.bg,
@@ -30,8 +58,10 @@ class FlexiAiChatPage extends StatelessWidget {
             child: Column(
               children: [
                 _DemoStatusCard(store: store),
+                _ActionPanel(store: store), // Moved up here as per Option A
                 Expanded(
                   child: ListView.builder(
+                    controller: _scrollController,
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                     itemCount: store.aiMessages.length,
                     itemBuilder: (context, index) {
@@ -40,7 +70,10 @@ class FlexiAiChatPage extends StatelessWidget {
                     },
                   ),
                 ),
-                _ActionPanel(store: store),
+                _ChatInputPanel(
+                  store: store,
+                  controller: _textController,
+                ),
               ],
             ),
           ),
@@ -102,7 +135,8 @@ class _ChatBubble extends StatelessWidget {
   final AiChatMessage message;
 
   bool get isAi => message.sender == 'Flexi AI';
-  bool get isReceiver => message.sender == 'Receiver';
+  bool get isUser => message.type == 'user';
+  bool get isReceiver => message.sender == 'Receiver' || isUser;
   bool get isDriver => message.sender == 'Driver';
 
   @override
@@ -188,9 +222,87 @@ class _ChatBubble extends StatelessWidget {
         return Icons.person_outline;
       case 'driver':
         return Icons.local_shipping_outlined;
+      case 'user':
+        return Icons.person;
       default:
         return Icons.info_outline;
     }
+  }
+}
+
+class _ChatInputPanel extends StatelessWidget {
+  const _ChatInputPanel({required this.store, required this.controller});
+
+  final DemoDeliveryStore store;
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      decoration: const BoxDecoration(
+        color: FlexiColors.surface,
+        border: Border(top: BorderSide(color: FlexiColors.border)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: controller,
+              enabled: !store.isChatLoading,
+              decoration: InputDecoration(
+                hintText: 'Tulis pesan untuk AI...',
+                hintStyle: const TextStyle(color: FlexiColors.muted, fontSize: 14),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: const BorderSide(color: FlexiColors.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: const BorderSide(color: FlexiColors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: const BorderSide(color: FlexiColors.primary),
+                ),
+                filled: true,
+                fillColor: FlexiColors.bg,
+              ),
+              onSubmitted: (val) {
+                if (val.trim().isNotEmpty) {
+                  store.sendChatMessage(val);
+                  controller.clear();
+                }
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          store.isChatLoading
+              ? const Padding(
+                  padding: EdgeInsets.all(12.0),
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2.5),
+                  ),
+                )
+              : CircleAvatar(
+                  backgroundColor: FlexiColors.primary,
+                  radius: 22,
+                  child: IconButton(
+                    icon: const Icon(Icons.send, color: Colors.white, size: 20),
+                    onPressed: () {
+                      if (controller.text.trim().isNotEmpty) {
+                        store.sendChatMessage(controller.text);
+                        controller.clear();
+                      }
+                    },
+                  ),
+                ),
+        ],
+      ),
+    );
   }
 }
 
@@ -202,11 +314,8 @@ class _ActionPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      decoration: const BoxDecoration(
-        color: FlexiColors.surface,
-        border: Border(top: BorderSide(color: FlexiColors.border)),
-      ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      color: FlexiColors.bg,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

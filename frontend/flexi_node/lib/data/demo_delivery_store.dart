@@ -64,6 +64,7 @@ class DemoDeliveryStore extends ChangeNotifier {
   bool offerCreated = false;
   bool offerAccepted = false;
   bool dropoffConfirmed = false;
+  bool isChatLoading = false;
 
   List<AiChatMessage> aiMessages = [];
 
@@ -107,18 +108,32 @@ class DemoDeliveryStore extends ChangeNotifier {
     FirebaseFirestore.instance
         .collection('AI_message')
         .where('receiverId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
-        .orderBy('timestamp', descending: false)
         .snapshots()
         .listen((snapshot) {
-      aiMessages = snapshot.docs.map((doc) => AiChatMessage.fromJson(doc.data())).toList();
-      if (aiMessages.isEmpty) {
-        aiMessages.add(const AiChatMessage(
-          sender: 'System',
-          type: 'system',
-          message: 'Delivery SD1440-Y started. Courier is heading to receiver address.',
-        ));
+      try {
+        final docs = snapshot.docs.toList();
+        docs.sort((a, b) {
+          final tA = a.data()['createdAt'] as Timestamp?;
+          final tB = b.data()['createdAt'] as Timestamp?;
+          if (tA == null && tB == null) return 0;
+          if (tA == null) return 1;
+          if (tB == null) return -1;
+          return tA.compareTo(tB);
+        });
+        aiMessages = docs.map((doc) => AiChatMessage.fromJson(doc.data())).toList();
+        if (aiMessages.isEmpty) {
+          aiMessages.add(const AiChatMessage(
+            sender: 'System',
+            type: 'system',
+            message: 'Delivery SD1440-Y started. Courier is heading to receiver address.',
+          ));
+        }
+        notifyListeners();
+      } catch (e) {
+        print("Error processing chat snapshot: $e");
       }
-      notifyListeners();
+    }, onError: (e) {
+      print("Firestore chat listener error: $e");
     });
   }
 
@@ -209,7 +224,11 @@ class DemoDeliveryStore extends ChangeNotifier {
 
   Future<void> sendChatMessage(String message) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
+    if (uid == null || message.trim().isEmpty) return;
+    
+    isChatLoading = true;
+    notifyListeners();
+    
     try {
       await http.post(
         Uri.parse('$_apiUrl/chat'),
@@ -222,6 +241,9 @@ class DemoDeliveryStore extends ChangeNotifier {
       );
     } catch (e) {
       print('Error sending chat: $e');
+    } finally {
+      isChatLoading = false;
+      notifyListeners();
     }
   }
 

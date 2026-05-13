@@ -1,7 +1,7 @@
 # Frontend Progress Report - Flexi Nodes
 
-**Project Status:** 🚀 **Demo Ready** (Hardcoded Simulation Layer Complete)
-**Last Updated:** Selasa, 12 Mei 2026
+**Project Status:** 🚀 **Demo Ready** (AI Chatbot & Integration Complete)
+**Last Updated:** Rabu, 13 Mei 2026
 
 ## 🚀 Completed Features
 
@@ -43,8 +43,9 @@
 - [x] Menggunakan **Firebase Anonymous Authentication** agar lolos dari `firestore.rules`.
 
 ### 3. Fase Selanjutnya: Interaksi Pengguna
-- [ ] **Chatbot UI Input**: Halaman `FlexiAiChatPage` saat ini hanya menampilkan log dari AI. Kita perlu menambahkan `TextField` di bagian bawah layar agar user bisa berinteraksi bolak-balik dengan Gemini.
-- [ ] Loading states and error handling for network calls.
+- [x] **Chatbot UI Input**: Halaman `FlexiAiChatPage` kini memiliki TextField dan tombol kirim untuk interaksi dua arah.
+- [x] **Real-time Firestore Sync**: Menggunakan stream listener dengan client-side sorting untuk menghindari masalah Firestore Index di emulator.
+- [x] **Loading States**: Visual feedback saat Gemini sedang memproses jawaban.
 
 ### 3. Polish
 - [ ] Form validation for Sign In/Register.

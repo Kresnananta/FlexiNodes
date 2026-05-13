@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "mocha test/*.test.js --timeout 10000"
+    "test": "mocha test/*.test.js --timeout 10000",
+    "emulators": "npx firebase-tools emulators:start --import=../firebase-data --export-on-exit=../firebase-data",
+    "emulators:export": "npx firebase-tools emulators:export ../firebase-data"
   },
   "keywords": [],
   "author": "",

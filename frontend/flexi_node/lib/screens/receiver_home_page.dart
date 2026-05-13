@@ -146,7 +146,7 @@ class _QuickActions extends StatelessWidget {
       _ActionItem(Icons.local_shipping_outlined, 'Track\nPackage', ReceiverHomePage.green, const Color(0xFFE8F7ED), '/tracking'),
       _ActionItem(Icons.add_business_outlined, 'Flexi\nPickup', ReceiverHomePage.blue, const Color(0xFFE5F4FF), '/nearby-nodes'),
       _ActionItem(Icons.sell_outlined, 'Vouchers', ReceiverHomePage.orange, const Color(0xFFFFF4E1), '/vouchers'),
-      _ActionItem(Icons.support_agent_outlined, 'Help', ReceiverHomePage.muted, const Color(0xFFE8F0E4), null),
+      _ActionItem(Icons.auto_awesome, 'Flexi\nAI', ReceiverHomePage.primary, const Color(0xFFE8F0E4), '/ai-chat'),
     ];
 
     return GridView.builder(
