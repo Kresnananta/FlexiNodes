@@ -18,6 +18,7 @@ import 'screens/rerouted_navigation_page.dart';
 import 'screens/sign_in_page.dart';
 import 'screens/tracking_page.dart';
 import 'screens/vouchers_page.dart';
+import 'screens/real_delivery_map_page.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -85,6 +86,7 @@ class FlexiNodesApp extends StatelessWidget {
 
         '/delivery-details': (context) => const DeliveryDetailsPage(),
         '/rerouted-navigation': (context) => const ReroutedNavigationPage(),
+        '/real-delivery-map': (context) => const RealDeliveryMapPage(),
 
         '/notifications': (context) => const NotificationsPage(),
         '/profile': (context) => const ProfilePage(),

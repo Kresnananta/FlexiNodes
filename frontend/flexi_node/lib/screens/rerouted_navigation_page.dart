@@ -103,7 +103,7 @@ class ReroutedNavigationPage extends StatelessWidget {
                             child: FlexiPrimaryButton(
                               label: 'Navigate',
                               icon: Icons.navigation,
-                              onPressed: () {},
+                              onPressed: () => Navigator.pushNamed(context, '/real-delivery-map'),
                             ),
                           ),
                           const SizedBox(width: 10),
