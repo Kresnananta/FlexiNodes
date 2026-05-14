@@ -71,11 +71,11 @@ class DemoDeliveryStore extends ChangeNotifier {
   final String _deliveryId = 'paket_001';
   String get _apiUrl {
     // Dipaksa ke Cloud URL untuk keperluan testing online
-    return 'https://api-mw5zqv12rq-uc.a.run.app';
-    
+    return 'https://api-mw5zqvl2rq-uc.a.run.app';
+
     /* Logic asli untuk switch otomatis:
     if (!kDebugMode) {
-      return 'https://api-mw5zqv12rq-uc.a.run.app';
+      return 'https://api-mw5zqvl2rq-uc.a.run.app';
     }
     ...
     */
@@ -87,29 +87,29 @@ class DemoDeliveryStore extends ChangeNotifier {
         .doc(_deliveryId)
         .snapshots()
         .listen((doc) {
-      if (doc.exists) {
-        final data = doc.data()!;
-        delayMinutes = data['delayMinutes'] ?? 0;
-        trafficStatus = delayMinutes > 15 ? 'heavy' : 'normal';
-        final String docStatus = data['status'] ?? 'on_delivery';
-        
-        if (docStatus == 'on_delivery' && delayMinutes > 15) {
-          status = DemoDeliveryStatus.offerPending;
-          offerCreated = true;
-        } else if (docStatus == 'rerouted_to_node') {
-          status = DemoDeliveryStatus.reroutedToNode;
-          offerAccepted = true;
-          offerCreated = true;
-          otpCode = data['otpCode']?.toString() ?? '';
-        } else if (docStatus == 'delivered_to_node') {
-          status = DemoDeliveryStatus.deliveredToNode;
-          dropoffConfirmed = true;
-        } else {
-          status = DemoDeliveryStatus.onDelivery;
-        }
-        notifyListeners();
-      }
-    });
+          if (doc.exists) {
+            final data = doc.data()!;
+            delayMinutes = data['delayMinutes'] ?? 0;
+            trafficStatus = delayMinutes > 15 ? 'heavy' : 'normal';
+            final String docStatus = data['status'] ?? 'on_delivery';
+
+            if (docStatus == 'on_delivery' && delayMinutes > 15) {
+              status = DemoDeliveryStatus.offerPending;
+              offerCreated = true;
+            } else if (docStatus == 'rerouted_to_node') {
+              status = DemoDeliveryStatus.reroutedToNode;
+              offerAccepted = true;
+              offerCreated = true;
+              otpCode = data['otpCode']?.toString() ?? '';
+            } else if (docStatus == 'delivered_to_node') {
+              status = DemoDeliveryStatus.deliveredToNode;
+              dropoffConfirmed = true;
+            } else {
+              status = DemoDeliveryStatus.onDelivery;
+            }
+            notifyListeners();
+          }
+        });
   }
 
   void _listenToChat() {
@@ -117,38 +117,48 @@ class DemoDeliveryStore extends ChangeNotifier {
         .collection('AI_message')
         .where('receiverId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
         .snapshots()
-        .listen((snapshot) {
-      try {
-        final docs = snapshot.docs.toList();
-        docs.sort((a, b) {
-          final tA = a.data()['createdAt'] as Timestamp?;
-          final tB = b.data()['createdAt'] as Timestamp?;
-          if (tA == null && tB == null) return 0;
-          if (tA == null) return 1;
-          if (tB == null) return -1;
-          return tA.compareTo(tB);
-        });
-        aiMessages = docs.map((doc) => AiChatMessage.fromJson(doc.data())).toList();
-        if (aiMessages.isEmpty) {
-          aiMessages.add(const AiChatMessage(
-            sender: 'System',
-            type: 'system',
-            message: 'Delivery SD1440-Y started. Courier is heading to receiver address.',
-          ));
-        }
-        notifyListeners();
-      } catch (e) {
-        print("Error processing chat snapshot: $e");
-      }
-    }, onError: (e) {
-      print("Firestore chat listener error: $e");
-    });
+        .listen(
+          (snapshot) {
+            try {
+              final docs = snapshot.docs.toList();
+              docs.sort((a, b) {
+                final tA = a.data()['createdAt'] as Timestamp?;
+                final tB = b.data()['createdAt'] as Timestamp?;
+                if (tA == null && tB == null) return 0;
+                if (tA == null) return 1;
+                if (tB == null) return -1;
+                return tA.compareTo(tB);
+              });
+              aiMessages = docs
+                  .map((doc) => AiChatMessage.fromJson(doc.data()))
+                  .toList();
+              if (aiMessages.isEmpty) {
+                aiMessages.add(
+                  const AiChatMessage(
+                    sender: 'System',
+                    type: 'system',
+                    message:
+                        'Delivery SD1440-Y started. Courier is heading to receiver address.',
+                  ),
+                );
+              }
+              notifyListeners();
+            } catch (e) {
+              print("Error processing chat snapshot: $e");
+            }
+          },
+          onError: (e) {
+            print("Firestore chat listener error: $e");
+          },
+        );
   }
 
   Future<void> _seedDummyData(String uid) async {
     // Try to create dummy delivery data
     try {
-      final doc = FirebaseFirestore.instance.collection('deliveries').doc(_deliveryId);
+      final doc = FirebaseFirestore.instance
+          .collection('deliveries')
+          .doc(_deliveryId);
       final snap = await doc.get();
       if (!snap.exists || snap.data()?['receiverId'] != uid) {
         await doc.set({
@@ -159,14 +169,14 @@ class DemoDeliveryStore extends ChangeNotifier {
         });
       }
     } catch (e) {
-      print("Seed data skipped due to rules, which is fine if backend handles it: $e");
+      print(
+        "Seed data skipped due to rules, which is fine if backend handles it: $e",
+      );
     }
   }
 
-  String get formattedCashback => 'Rp${cashbackAmount.toString().replaceAllMapped(
-        RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-        (match) => '${match[1]}.',
-      )}';
+  String get formattedCashback =>
+      'Rp${cashbackAmount.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (match) => '${match[1]}.')}';
 
   String get statusText {
     switch (status) {
@@ -225,18 +235,18 @@ class DemoDeliveryStore extends ChangeNotifier {
   }
 
   void confirmDropoff() {
-    FirebaseFirestore.instance.collection('deliveries').doc(_deliveryId).update({
-      'status': 'delivered_to_node'
-    });
+    FirebaseFirestore.instance.collection('deliveries').doc(_deliveryId).update(
+      {'status': 'delivered_to_node'},
+    );
   }
 
   Future<void> sendChatMessage(String message) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null || message.trim().isEmpty) return;
-    
+
     isChatLoading = true;
     notifyListeners();
-    
+
     try {
       await http.post(
         Uri.parse('$_apiUrl/chat'),
