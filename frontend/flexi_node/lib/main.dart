@@ -18,6 +18,9 @@ import 'screens/sign_in_page.dart';
 import 'screens/tracking_page.dart';
 import 'screens/vouchers_page.dart';
 import 'screens/real_route_map.dart';
+import 'screens/qr_scanner_page.dart';
+import 'screens/driver_qr_page.dart';
+import 'screens/receiver_qr_page.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -92,10 +95,26 @@ class FlexiNodesApp extends StatelessWidget {
         '/notifications': (context) => const NotificationsPage(),
         '/profile': (context) => const ProfilePage(),
         '/partner-dashboard': (context) => const PartnerDashboardPage(),
+
+        '/driver-qr': (context) => const DriverQrPage(),
+        '/receiver-qr': (context) => const ReceiverQrPage(),
       },
 
       // Dynamic routes that need arguments
       onGenerateRoute: (settings) {
+        // QR Scanner route
+        if (settings.name == '/qr-scanner') {
+          final args = settings.arguments as Map<String, dynamic>?;
+
+          return MaterialPageRoute(
+            builder: (context) => QrScannerPage(
+              expectedType: args?['expectedType'] as String?,
+              title: args?['title'] as String? ?? 'Scan QR',
+            ),
+          );
+        }
+
+        // Real map routes
         if (settings.name == '/real-map' ||
             settings.name == '/real-delivery-map' ||
             settings.name == '/rerouted-navigation') {
