@@ -71,11 +71,22 @@ class DemoDeliveryStore extends ChangeNotifier {
 
   String get deliveryId => _deliveryId;
 
+  // Choose ONE API mode:
+  //
+  // Option A: Firebase emulator/local backend
   String get _apiUrl {
     return kIsWeb
         ? 'http://127.0.0.1:5001/demo-no-project/us-central1/api'
         : 'http://10.0.2.2:5001/demo-no-project/us-central1/api';
   }
+
+  // Option B: Online Cloud Run backend
+  // Uncomment this and delete/comment Option A if you want online API.
+  /*
+  String get _apiUrl {
+    return 'https://api-mw5zqv12rq-uc.a.run.app';
+  }
+  */
 
   void _initAuth() {
     FirebaseAuth.instance.authStateChanges().listen((user) {
@@ -348,12 +359,10 @@ class DemoDeliveryStore extends ChangeNotifier {
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      aiMessages.add(
-        AiChatMessage(
-          sender: 'Mitra',
-          type: 'mitra',
-          message: 'Package received by $nodeName through $source.',
-        ),
+      _addLocalAiMessage(
+        sender: 'Mitra',
+        type: 'mitra',
+        message: 'Package received by $nodeName through $source.',
       );
     } catch (e) {
       debugPrint('Error marking package received by mitra: $e');
@@ -363,12 +372,10 @@ class DemoDeliveryStore extends ChangeNotifier {
       offerAccepted = true;
       offerCreated = true;
 
-      aiMessages.add(
-        AiChatMessage(
-          sender: 'Mitra',
-          type: 'mitra',
-          message: 'Package received by $nodeName through $source.',
-        ),
+      _addLocalAiMessage(
+        sender: 'Mitra',
+        type: 'mitra',
+        message: 'Package received by $nodeName through $source.',
       );
 
       notifyListeners();
@@ -389,13 +396,11 @@ class DemoDeliveryStore extends ChangeNotifier {
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      aiMessages.add(
-        AiChatMessage(
-          sender: 'Mitra',
-          type: 'mitra',
-          message:
-              'Package released to $receiverName through $source. Delivery completed.',
-        ),
+      _addLocalAiMessage(
+        sender: 'Mitra',
+        type: 'mitra',
+        message:
+            'Package released to $receiverName through $source. Delivery completed.',
       );
     } catch (e) {
       debugPrint('Error completing pickup: $e');
@@ -405,13 +410,11 @@ class DemoDeliveryStore extends ChangeNotifier {
       offerAccepted = true;
       offerCreated = true;
 
-      aiMessages.add(
-        AiChatMessage(
-          sender: 'Mitra',
-          type: 'mitra',
-          message:
-              'Package released to $receiverName through $source. Delivery completed.',
-        ),
+      _addLocalAiMessage(
+        sender: 'Mitra',
+        type: 'mitra',
+        message:
+            'Package released to $receiverName through $source. Delivery completed.',
       );
 
       notifyListeners();
@@ -629,6 +632,20 @@ class DemoDeliveryStore extends ChangeNotifier {
       );
 
     notifyListeners();
+  }
+
+  void _addLocalAiMessage({
+    required String sender,
+    required String type,
+    required String message,
+  }) {
+    aiMessages.add(
+      AiChatMessage(
+        sender: sender,
+        type: type,
+        message: message,
+      ),
+    );
   }
 }
 
