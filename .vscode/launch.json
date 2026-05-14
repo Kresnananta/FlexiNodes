@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Flexi Node (Chrome)",
+      "request": "launch",
+      "type": "dart",
+      "args": [
+        "-d",
+        "chrome",
+        "--dart-define=GOOGLE_ROUTES_API_KEY=AIzaSyCBA6L9i7NiCVCcEECuwYKd8ej6xQni8DY"
+      ]
+    },
+    {
+      "name": "Flexi Node (Android)",
+      "request": "launch",
+      "type": "dart",
+      "args": [
+        "--dart-define=GOOGLE_ROUTES_API_KEY=AIzaSyCBA6L9i7NiCVCcEECuwYKd8ej6xQni8DY"
+      ]
+    }
+  ]
+}

@@ -30,26 +30,18 @@ import 'package:flutter/foundation.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Dummy options for local Firebase emulator
-  const emulatorOptions = FirebaseOptions(
-    apiKey: 'demo-api-key',
-    appId: '1:1234567890:web:1234567890',
-    messagingSenderId: '1234567890',
-    projectId: 'demo-no-project',
+  // Konfigurasi Firebase Asli untuk flexi-nodes
+  const firebaseOptions = FirebaseOptions(
+    apiKey: 'AIzaSyDFpk4Rffw3wNnuw--XRw_FeRnh-Z7Y0vM',
+    appId: '1:807475730103:web:0c6367e7613e4283ae5f32',
+    messagingSenderId: '807475730103',
+    projectId: 'flexi-nodes',
+    authDomain: 'flexi-nodes.firebaseapp.com',
+    storageBucket: 'flexi-nodes.firebasestorage.app',
+    measurementId: 'G-V06FPKTNKV',
   );
 
-  await Firebase.initializeApp(options: emulatorOptions);
-
-  // Connect to local Firebase emulators.
-  // Android emulator uses 10.0.2.2.
-  // Web uses 127.0.0.1.
-  //
-  // If using a real phone, change host to your laptop IP, example:
-  // const String host = '192.168.1.10';
-  const String host = kIsWeb ? '127.0.0.1' : '10.0.2.2';
-
-  FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);
-  await FirebaseAuth.instance.useAuthEmulator(host, 9099);
+  await Firebase.initializeApp(options: firebaseOptions);
 
   // Anonymous login for demo
   try {
