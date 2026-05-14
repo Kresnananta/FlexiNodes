@@ -71,20 +71,17 @@ class DemoDeliveryStore extends ChangeNotifier {
 
   String get deliveryId => _deliveryId;
 
-  // Choose ONE API mode:
-  //
-  // Option A: Firebase emulator/local backend
+  // Online Cloud Function / Cloud Run API
+  String get _apiUrl {
+    return 'https://api-mw5zqv12rq-uc.a.run.app';
+  }
+
+  // Use this instead if you want local Firebase emulator API:
+  /*
   String get _apiUrl {
     return kIsWeb
         ? 'http://127.0.0.1:5001/demo-no-project/us-central1/api'
         : 'http://10.0.2.2:5001/demo-no-project/us-central1/api';
-  }
-
-  // Option B: Online Cloud Run backend
-  // Uncomment this and delete/comment Option A if you want online API.
-  /*
-  String get _apiUrl {
-    return 'https://api-mw5zqv12rq-uc.a.run.app';
   }
   */
 
@@ -96,17 +93,6 @@ class DemoDeliveryStore extends ChangeNotifier {
         _seedDummyData(user.uid);
       }
     });
-  final String _deliveryId = 'paket_001';
-  String get _apiUrl {
-    // Dipaksa ke Cloud URL untuk keperluan testing online
-    return 'https://api-mw5zqv12rq-uc.a.run.app';
-    
-    /* Logic asli untuk switch otomatis:
-    if (!kDebugMode) {
-      return 'https://api-mw5zqv12rq-uc.a.run.app';
-    }
-    ...
-    */
   }
 
   void _listenToDelivery() {
