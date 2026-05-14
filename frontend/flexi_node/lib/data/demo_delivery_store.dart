@@ -96,6 +96,17 @@ class DemoDeliveryStore extends ChangeNotifier {
         _seedDummyData(user.uid);
       }
     });
+  final String _deliveryId = 'paket_001';
+  String get _apiUrl {
+    // Dipaksa ke Cloud URL untuk keperluan testing online
+    return 'https://api-mw5zqv12rq-uc.a.run.app';
+    
+    /* Logic asli untuk switch otomatis:
+    if (!kDebugMode) {
+      return 'https://api-mw5zqv12rq-uc.a.run.app';
+    }
+    ...
+    */
   }
 
   void _listenToDelivery() {

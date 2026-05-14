@@ -1,58 +1,48 @@
 # Frontend Progress Report - Flexi Nodes
 
-**Project Status:** 🚀 **Demo Ready** (AI Chatbot & Integration Complete)
-**Last Updated:** Rabu, 13 Mei 2026
+**Project Status:** 🚀 **Demo Ready (Hybrid Integration)**
+**Technical Baseline:** Flutter 3.x, Firebase Emulator Suite, Node.js Local API
 
-## 🚀 Completed Features
+## 💡 System Architecture
+- **State Management:** Centralized reactive state using `ChangeNotifier` (`DemoDeliveryStore`).
+- **Data Synchronization:** Real-time Firestore streaming with client-side sorting/logic for low-latency updates.
+- **Role-Based Routing:** Unified entry point with dynamic role selection (Receiver, Driver, Partner).
 
-### 1. Core Architecture & UI Kit
-- [x] **UI Kit Established (`flexi_ui.dart`)**: 
-    - Reusable components: `FlexiCard`, `FlexiPrimaryButton`, `FlexiOutlineButton`, `StatusPill`, `MiniMap`.
-    - Centralized color palette (`FlexiColors`).
-- [x] **Full Routing (`main.dart`)**: All 18+ routes defined and connected.
-- [x] **Demo State Management (`demo_delivery_store.dart`)**: 
-    - Centralized logic using `ChangeNotifier`.
-    - Integrated AI simulation (observe, reason, action steps).
+## ✅ Implemented Features & Changes
 
-### 2. Implemented Screens (High Fidelity & Functional Demo)
-- [x] **Onboarding & Auth**: `LandingPage`, `SignInPage`, `RegisterPage`.
-- [x] **Receiver Flow**:
-    - `ReceiverHomePage`: Dashboard with active tracking.
-    - `TrackingPage`: Real-time tracking visualization with AI alerts.
-    - `NearbyNodesPage`: Selection of partner staging areas.
-    - `FlexiPickupOfferPage`: Interactive AI reroute proposal.
-    - `ConfirmationPage`: Success screen with OTP Pickup Code.
-- [x] **Driver Flow**:
-    - `DriverHomePage`: Updated with "Simulate Heavy Traffic" trigger.
-    - `ReroutedNavigationPage`: Dynamic navigation showing reroute logic.
-    - `DeliveryDetailsPage`: Full package timeline and status tracking.
-- [x] **Partner & Support**:
-    - `PartnerDashboardPage`: Package handover management for shop owners.
-    - `NotificationsPage`, `VouchersPage`, `ProfilePage`, `OrdersPage`.
-- [x] **AI Chat Simulation**:
-    - `FlexiAiChatPage`: Interactive log showing AI's background reasoning and decision-making process.
+### 1. Hybrid State Machine (`DemoDeliveryStore`)
+- Successfully transitioned from hardcoded values to a dynamic state machine.
+- Supported Statuses: `on_delivery` → `traffic_detected` (triggered via API) → `offer_pending` → `rerouted_to_node` → `delivered_to_node`.
+- Automated seeding of dummy delivery data on first login.
 
-## 🛠️ Next Steps (Integration Phase)
+### 2. AI Agent Implementation (`/ai-chat`)
+- **Reasoning Visualization:** Implemented a log-style chat bubble system that distinguishes between AI observations (`observe`), reasoning (`reason`), and decisions (`action`).
+- **Two-Way Interaction:** Enabled user-to-AI messaging via the `/chat` endpoint.
+- **Firebase Sync:** Optimized `AI_message` collection listener with timestamp-based ordering.
 
-### 1. Logic Transition (Selesai)
-- [x] **API Integration**: Integrasi endpoint `/simulate-traffic` dan `/accept-offer` menggunakan `http` package.
-- [x] **Firestore Streaming**: Menggunakan `StreamBuilder` dan listener untuk memantau koleksi `deliveries` dan `AI_message` secara real-time.
-- [ ] **Live Maps**: (Tertunda) Replace `CustomPainter` mini-maps with actual `google_maps_flutter` integration.
+### 3. Advanced Map & Navigation (`/real-delivery-map`)
+- **Map Engine:** Integrated `google_maps_flutter` replacing the initial `CustomPainter` mocks.
+- **Live Polyline Routing:** Dynamic route rendering that adjusts when a delivery is rerouted to a staging node.
+- **GPS Logic:** Dual-mode location support (toggle between hardcoded demo coordinates and real device GPS).
 
-### 2. Authentication (Selesai)
-- [x] Menggunakan **Firebase Anonymous Authentication** agar lolos dari `firestore.rules`.
+### 4. Integration & Authentication
+- **Firebase Emulator:** Configured `main.dart` to automatically connect to Firestore (8080) and Auth (9099) emulators.
+- **Anonymous Auth:** Zero-friction onboarding for demo users while maintaining Firestore rule compatibility.
+- **API Bridge:** Integrated `http` package for backend triggers (`/simulate-traffic`, `/accept-offer`).
 
-### 3. Fase Selanjutnya: Interaksi Pengguna
-- [x] **Chatbot UI Input**: Halaman `FlexiAiChatPage` kini memiliki TextField dan tombol kirim untuk interaksi dua arah.
-- [x] **Real-time Firestore Sync**: Menggunakan stream listener dengan client-side sorting untuk menghindari masalah Firestore Index di emulator.
-- [x] **Loading States**: Visual feedback saat Gemini sedang memproses jawaban.
+### 5. UI Kit Expansion (`flexi_ui.dart`)
+- Established `FlexiColors` palette and reusable design tokens.
+- Standardized components: `FlexiCard`, `FlexiPrimaryButton`, `StatusPill`, `MiniMap`, and `CompactBottomNav`.
 
-### 3. Polish
-- [ ] Form validation for Sign In/Register.
-- [ ] Loading states and error handling for network calls.
+## 🚧 Roadmap & Next Steps
+- [x] Firestore Streaming Implementation
+- [x] Google Maps Integration
+- [x] AI Reasoning Log UI
+- [ ] **Form Validation:** Add robust validation for Auth and Profile fields.
+- [ ] **Error Handling:** Implement globally handled network exceptions for the `http` bridge.
+- [ ] **Push Notifications:** Add local notification triggers for AI reroute proposals.
 
-## 🎨 UI/UX Highlights
-- **Primary Color**: `#006E2F` (Deep Green)
-- **AI Theme**: Blue Soft accents for AI-driven insights.
-- **Urgency Theme**: Orange/Red for traffic alerts and delays.
-- **Experience**: Seamless transition between roles for demo purposes.
+## 🎨 UI/UX Context
+- **Primary Theme:** Deep Green (`#006E2F`) representing trust and growth.
+- **AI Accents:** Soft Blue for intelligence-driven insights.
+- **Alert System:** Orange/Red for traffic delays and high-priority actions.

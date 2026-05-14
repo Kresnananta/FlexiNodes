@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "engines": {
+    "node": "20"
+  },
   "scripts": {
     "test": "mocha test/*.test.js --timeout 10000",
     "emulators": "npx firebase-tools emulators:start --import=../firebase-data --export-on-exit=../firebase-data",

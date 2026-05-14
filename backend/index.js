@@ -6,11 +6,10 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const express = require('express');
 const cors = require('cors');
 const { getDistanceFromLatLonInKm } = require('./geoHelper');
-const serviceAccount = require('./serviceAccountKey.json');
 require('dotenv').config();
 
 // Inisialisasi Admin SDK
-// Untuk Cloud Functions/Emulator, cukup gunakan admin.initializeApp() tanpa parameter
+// Di Cloud Functions, admin.initializeApp() otomatis menggunakan service account default.
 if (!admin.apps.length) {
   admin.initializeApp();
 }
