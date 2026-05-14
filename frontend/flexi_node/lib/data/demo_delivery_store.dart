@@ -69,9 +69,17 @@ class DemoDeliveryStore extends ChangeNotifier {
   List<AiChatMessage> aiMessages = [];
 
   final String _deliveryId = 'paket_001';
-  String get _apiUrl => kIsWeb 
-    ? 'http://127.0.0.1:5001/demo-no-project/us-central1/api' 
-    : 'http://10.0.2.2:5001/demo-no-project/us-central1/api';
+  String get _apiUrl {
+    // Dipaksa ke Cloud URL untuk keperluan testing online
+    return 'https://api-mw5zqv12rq-uc.a.run.app';
+    
+    /* Logic asli untuk switch otomatis:
+    if (!kDebugMode) {
+      return 'https://api-mw5zqv12rq-uc.a.run.app';
+    }
+    ...
+    */
+  }
 
   void _listenToDelivery() {
     FirebaseFirestore.instance
