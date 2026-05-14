@@ -14,11 +14,10 @@ import 'screens/partner_dashboard_page.dart';
 import 'screens/profile_page.dart';
 import 'screens/receiver_home_page.dart';
 import 'screens/register_page.dart';
-import 'screens/rerouted_navigation_page.dart';
 import 'screens/sign_in_page.dart';
 import 'screens/tracking_page.dart';
 import 'screens/vouchers_page.dart';
-import 'screens/real_delivery_map_page.dart';
+import 'screens/real_route_map.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -27,8 +26,8 @@ import 'package:flutter/foundation.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Dummy options for local emulator
+
+  // Dummy options for local Firebase emulator
   const emulatorOptions = FirebaseOptions(
     apiKey: 'demo-api-key',
     appId: '1:1234567890:web:1234567890',
@@ -38,17 +37,25 @@ void main() async {
 
   await Firebase.initializeApp(options: emulatorOptions);
 
-  // Connect to local emulators
+  // Connect to local Firebase emulators.
+  // Android emulator uses 10.0.2.2.
+  // Web uses 127.0.0.1.
+  //
+  // If using a real phone, change host to your laptop IP, example:
+  // const String host = '192.168.1.10';
   const String host = kIsWeb ? '127.0.0.1' : '10.0.2.2';
+
   FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);
   await FirebaseAuth.instance.useAuthEmulator(host, 9099);
 
-  // Anonymous login for Demo
+  // Anonymous login for demo
   try {
     await FirebaseAuth.instance.signInAnonymously();
-    print("Signed in anonymously: ${FirebaseAuth.instance.currentUser?.uid}");
+    debugPrint(
+      'Signed in anonymously: ${FirebaseAuth.instance.currentUser?.uid}',
+    );
   } catch (e) {
-    print("Error signing in anonymously: $e");
+    debugPrint('Error signing in anonymously: $e');
   }
 
   runApp(const FlexiNodesApp());
@@ -64,9 +71,13 @@ class FlexiNodesApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF006E2F)),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF006E2F),
+        ),
       ),
       initialRoute: '/',
+
+      // Normal static routes
       routes: {
         '/': (context) => const LandingPage(),
         '/sign-in': (context) => const SignInPage(),
@@ -85,12 +96,34 @@ class FlexiNodesApp extends StatelessWidget {
         '/orders': (context) => const OrdersPage(),
 
         '/delivery-details': (context) => const DeliveryDetailsPage(),
-        '/rerouted-navigation': (context) => const ReroutedNavigationPage(),
-        '/real-delivery-map': (context) => const RealDeliveryMapPage(),
 
         '/notifications': (context) => const NotificationsPage(),
         '/profile': (context) => const ProfilePage(),
         '/partner-dashboard': (context) => const PartnerDashboardPage(),
+      },
+
+      // Dynamic routes that need arguments
+      onGenerateRoute: (settings) {
+        if (settings.name == '/real-map' ||
+            settings.name == '/real-delivery-map' ||
+            settings.name == '/rerouted-navigation') {
+          final args = settings.arguments as Map<String, dynamic>?;
+
+          return MaterialPageRoute(
+            builder: (context) => RealRouteMapPage(
+              mode: args?['mode'] ?? 'receiver',
+              usePhoneGpsByDefault: args?['usePhoneGps'] ?? false,
+            ),
+          );
+        }
+
+        return null;
+      },
+
+      onUnknownRoute: (settings) {
+        return MaterialPageRoute(
+          builder: (context) => const LandingPage(),
+        );
       },
     );
   }

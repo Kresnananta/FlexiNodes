@@ -11,7 +11,13 @@ class TrackingPage extends StatelessWidget {
       appBar: const FlexiAppBar(title: 'Tracking'),
       bottomNavigationBar: const CompactBottomNav(
         currentIndex: 2,
-        routes: ['/receiver-home', '/orders', '/tracking', '/vouchers', '/profile'],
+        routes: [
+          '/receiver-home',
+          '/orders',
+          '/tracking',
+          '/vouchers',
+          '/profile',
+        ],
       ),
       body: SafeArea(
         top: false,
@@ -20,7 +26,11 @@ class TrackingPage extends StatelessWidget {
           children: [
             Stack(
               children: [
-                const MiniMap(height: 260, showNode: true, showCustomer: true),
+                const MiniMap(
+                  height: 260,
+                  showNode: true,
+                  showCustomer: true,
+                ),
                 Positioned(
                   top: 12,
                   right: 12,
@@ -33,7 +43,17 @@ class TrackingPage extends StatelessWidget {
                 ),
               ],
             ),
+
+            const SizedBox(height: 10),
+
+            FlexiPrimaryButton(
+              label: 'View Live Route Map',
+              icon: Icons.map_outlined,
+              onPressed: () => Navigator.pushNamed(context, '/rerouted-navigation'),
+            ),
+
             const SizedBox(height: 14),
+
             FlexiCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -43,7 +63,10 @@ class TrackingPage extends StatelessWidget {
                       Expanded(
                         child: Text(
                           'Order SD1440-Y',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                          ),
                         ),
                       ),
                       StatusPill(
@@ -56,17 +79,25 @@ class TrackingPage extends StatelessWidget {
                   const SizedBox(height: 10),
                   const Text(
                     'Courier: Rizky Fahmi',
-                    style: TextStyle(color: FlexiColors.muted, fontSize: 13),
+                    style: TextStyle(
+                      color: FlexiColors.muted,
+                      fontSize: 13,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   const Text(
                     'Estimated delay: 20 minutes',
-                    style: TextStyle(color: FlexiColors.muted, fontSize: 13),
+                    style: TextStyle(
+                      color: FlexiColors.muted,
+                      fontSize: 13,
+                    ),
                   ),
                 ],
               ),
             ),
+
             const SizedBox(height: 14),
+
             FlexiCard(
               color: FlexiColors.blueSoft,
               child: Row(
@@ -74,7 +105,11 @@ class TrackingPage extends StatelessWidget {
                 children: [
                   const CircleAvatar(
                     backgroundColor: FlexiColors.blue,
-                    child: Icon(Icons.auto_awesome, color: Colors.white, size: 20),
+                    child: Icon(
+                      Icons.auto_awesome,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -83,18 +118,26 @@ class TrackingPage extends StatelessWidget {
                       children: [
                         const Text(
                           'AI detected heavy traffic',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                          ),
                         ),
                         const SizedBox(height: 5),
                         const Text(
                           'You can pick up your package at a nearby partner store and receive cashback.',
-                          style: TextStyle(color: FlexiColors.muted, fontSize: 13, height: 1.35),
+                          style: TextStyle(
+                            color: FlexiColors.muted,
+                            fontSize: 13,
+                            height: 1.35,
+                          ),
                         ),
                         const SizedBox(height: 12),
                         FlexiPrimaryButton(
                           label: 'See nearby pickup nodes',
                           icon: Icons.storefront,
-                          onPressed: () => Navigator.pushNamed(context, '/nearby-nodes'),
+                          onPressed: () =>
+                              Navigator.pushNamed(context, '/nearby-nodes'),
                           backgroundColor: FlexiColors.blue,
                         ),
                         const SizedBox(height: 8),
@@ -108,14 +151,33 @@ class TrackingPage extends StatelessWidget {
                 ],
               ),
             ),
+
             const SizedBox(height: 14),
+
             const FlexiCard(
               child: Column(
                 children: [
-                  TimelineStep(title: 'Package picked up', subtitle: 'Warehouse Surabaya • 13:25', active: true),
-                  TimelineStep(title: 'On the way', subtitle: 'Courier is moving to your location', active: true),
-                  TimelineStep(title: 'Delayed by traffic', subtitle: 'Heavy traffic near your address', active: true),
-                  TimelineStep(title: 'Delivered', subtitle: 'Waiting for final delivery', active: false, last: true),
+                  TimelineStep(
+                    title: 'Package picked up',
+                    subtitle: 'Warehouse Surabaya • 13:25',
+                    active: true,
+                  ),
+                  TimelineStep(
+                    title: 'On the way',
+                    subtitle: 'Courier is moving to your location',
+                    active: true,
+                  ),
+                  TimelineStep(
+                    title: 'Delayed by traffic',
+                    subtitle: 'Heavy traffic near your address',
+                    active: true,
+                  ),
+                  TimelineStep(
+                    title: 'Delivered',
+                    subtitle: 'Waiting for final delivery',
+                    active: false,
+                    last: true,
+                  ),
                 ],
               ),
             ),
