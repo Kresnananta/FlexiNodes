@@ -34,23 +34,97 @@ class AiChatMessage {
   }
 }
 
+class DemoPickupNode {
+  const DemoPickupNode({
+    required this.id,
+    required this.name,
+    required this.distance,
+    required this.walkingTime,
+    required this.status,
+    required this.capacity,
+    required this.voucherText,
+    required this.voucherAmount,
+    required this.latitude,
+    required this.longitude,
+    this.recommended = false,
+  });
+
+  final String id;
+  final String name;
+  final String distance;
+  final String walkingTime;
+  final String status;
+  final String capacity;
+  final String voucherText;
+  final int voucherAmount;
+  final double latitude;
+  final double longitude;
+  final bool recommended;
+}
+
 class DemoDeliveryStore extends ChangeNotifier {
   DemoDeliveryStore() {
     _initAuth();
   }
 
   final String _deliveryId = 'paket_001';
-  final String nodeId = 'node_001';
+
+  static const List<DemoPickupNode> availableNodes = [
+    DemoPickupNode(
+      id: 'node_001',
+      name: 'Indomaret Ahmad Yani',
+      distance: '75m',
+      walkingTime: '2 min',
+      status: 'Available',
+      capacity: '6 slots',
+      voucherText: 'Rp5.000',
+      voucherAmount: 5000,
+      latitude: -7.2812,
+      longitude: 112.7521,
+      recommended: true,
+    ),
+    DemoPickupNode(
+      id: 'node_002',
+      name: 'Warung Bu Sari',
+      distance: '90m',
+      walkingTime: '3 min',
+      status: 'Available',
+      capacity: '3 slots',
+      voucherText: 'Rp4.000',
+      voucherAmount: 4000,
+      latitude: -7.2809,
+      longitude: 112.7542,
+    ),
+    DemoPickupNode(
+      id: 'node_003',
+      name: 'Alfamart Kertajaya',
+      distance: '100m',
+      walkingTime: '4 min',
+      status: 'Almost full',
+      capacity: '1 slot',
+      voucherText: 'Rp6.000',
+      voucherAmount: 6000,
+      latitude: -7.2827,
+      longitude: 112.7534,
+    ),
+  ];
 
   DemoDeliveryStatus status = DemoDeliveryStatus.onDelivery;
 
   final String orderId = 'SD1440-Y';
   String receiverName = 'Andika Sujanto';
   String driverName = 'Rizky Fahmi';
-  String nodeName = 'Indomaret Ahmad Yani';
-  String nodeDistance = '75m';
-  String walkingTime = '2 min';
-  int cashbackAmount = 5000;
+
+  String nodeId = availableNodes.first.id;
+  String nodeName = availableNodes.first.name;
+  String nodeDistance = availableNodes.first.distance;
+  String walkingTime = availableNodes.first.walkingTime;
+  String nodeStatus = availableNodes.first.status;
+  String nodeCapacity = availableNodes.first.capacity;
+  double nodeLatitude = availableNodes.first.latitude;
+  double nodeLongitude = availableNodes.first.longitude;
+
+  int voucherAmount = availableNodes.first.voucherAmount;
   String otpCode = '';
 
   String trafficStatus = 'normal';
@@ -58,6 +132,7 @@ class DemoDeliveryStore extends ChangeNotifier {
   bool offerCreated = false;
   bool offerAccepted = false;
   bool dropoffConfirmed = false;
+  bool homeDeliverySelected = false;
   bool isChatLoading = false;
 
   List<AiChatMessage> aiMessages = [
@@ -85,6 +160,35 @@ class DemoDeliveryStore extends ChangeNotifier {
   }
   */
 
+  DemoPickupNode get selectedNode {
+    return availableNodes.firstWhere(
+      (node) => node.id == nodeId,
+      orElse: () => availableNodes.first,
+    );
+  }
+
+  void selectPickupNode(DemoPickupNode node) {
+    nodeId = node.id;
+    nodeName = node.name;
+    nodeDistance = node.distance;
+    walkingTime = node.walkingTime;
+    nodeStatus = node.status;
+    nodeCapacity = node.capacity;
+    nodeLatitude = node.latitude;
+    nodeLongitude = node.longitude;
+    voucherAmount = node.voucherAmount;
+    homeDeliverySelected = false;
+
+    _addLocalAiMessage(
+      sender: 'Receiver',
+      type: 'receiver',
+      message: 'Selected pickup node: ${node.name}.',
+      shouldNotify: false,
+    );
+
+    notifyListeners();
+  }
+
   void _initAuth() {
     FirebaseAuth.instance.authStateChanges().listen((user) {
       if (user != null) {
@@ -110,28 +214,46 @@ class DemoDeliveryStore extends ChangeNotifier {
 
       receiverName = data['receiverName'] as String? ?? receiverName;
       driverName = data['driverName'] as String? ?? driverName;
+
+      nodeId = data['selectedNodeId'] as String? ?? nodeId;
       nodeName = data['selectedNodeName'] as String? ?? nodeName;
+      nodeLatitude = (data['selectedNodeLat'] as num?)?.toDouble() ?? nodeLatitude;
+      nodeLongitude = (data['selectedNodeLng'] as num?)?.toDouble() ?? nodeLongitude;
+
+      final matchedNode = availableNodes.where((node) => node.id == nodeId).toList();
+      if (matchedNode.isNotEmpty) {
+        nodeDistance = matchedNode.first.distance;
+        walkingTime = matchedNode.first.walkingTime;
+        nodeStatus = matchedNode.first.status;
+        nodeCapacity = matchedNode.first.capacity;
+        voucherAmount = matchedNode.first.voucherAmount;
+      }
+
       otpCode = data['otpCode']?.toString() ?? otpCode;
+      homeDeliverySelected = data['homeDeliverySelected'] as bool? ?? homeDeliverySelected;
 
       final String docStatus = data['status'] as String? ?? 'on_delivery';
 
-      if (docStatus == 'on_delivery' && delayMinutes > 15) {
+      if (docStatus == 'on_delivery' && delayMinutes > 15 && !homeDeliverySelected) {
         status = DemoDeliveryStatus.offerPending;
         offerCreated = true;
       } else if (docStatus == 'rerouted_to_node') {
         status = DemoDeliveryStatus.reroutedToNode;
         offerAccepted = true;
         offerCreated = true;
+        homeDeliverySelected = false;
       } else if (docStatus == 'delivered_to_node') {
         status = DemoDeliveryStatus.deliveredToNode;
         offerAccepted = true;
         offerCreated = true;
         dropoffConfirmed = true;
+        homeDeliverySelected = false;
       } else if (docStatus == 'completed') {
         status = DemoDeliveryStatus.completed;
         offerAccepted = true;
         offerCreated = true;
         dropoffConfirmed = true;
+        homeDeliverySelected = false;
       } else {
         status = DemoDeliveryStatus.onDelivery;
         offerCreated = false;
@@ -208,8 +330,12 @@ class DemoDeliveryStore extends ChangeNotifier {
           'driverName': driverName,
           'status': 'on_delivery',
           'delayMinutes': 0,
-          'selectedNodeId': null,
-          'selectedNodeName': null,
+          'homeDeliverySelected': false,
+          'voucherIssued': false,
+          'selectedNodeId': nodeId,
+          'selectedNodeName': nodeName,
+          'selectedNodeLat': nodeLatitude,
+          'selectedNodeLng': nodeLongitude,
           'otpCode': '',
           'updatedAt': FieldValue.serverTimestamp(),
         });
@@ -223,11 +349,18 @@ class DemoDeliveryStore extends ChangeNotifier {
 
   String get safeOtpCode => otpCode.isNotEmpty ? otpCode : '8421';
 
-  String get formattedCashback {
-    return 'Rp${cashbackAmount.toString().replaceAllMapped(
+  String get formattedVoucher {
+    return 'Rp${voucherAmount.toString().replaceAllMapped(
           RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
           (match) => '${match[1]}.',
         )}';
+  }
+
+  // Backward compatibility for old pages still referencing formattedCashback.
+  String get formattedCashback => formattedVoucher;
+
+  bool get voucherEligible {
+    return offerAccepted && !homeDeliverySelected;
   }
 
   String get statusText {
@@ -254,7 +387,9 @@ class DemoDeliveryStore extends ChangeNotifier {
   }
 
   bool get canShowOffer {
-    return status == DemoDeliveryStatus.offerPending && !offerAccepted;
+    return status == DemoDeliveryStatus.offerPending &&
+        !offerAccepted &&
+        !homeDeliverySelected;
   }
 
   String get driverQrPayload {
@@ -310,6 +445,33 @@ class DemoDeliveryStore extends ChangeNotifier {
     }
   }
 
+  Future<void> keepHomeDelivery() async {
+    homeDeliverySelected = true;
+    offerAccepted = false;
+    offerCreated = false;
+
+    _addLocalAiMessage(
+      sender: 'Receiver',
+      type: 'receiver',
+      message: 'Receiver chose to keep door-to-door delivery. No voucher will be issued.',
+    );
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('deliveries')
+          .doc(_deliveryId)
+          .update({
+        'status': 'on_delivery',
+        'homeDeliverySelected': true,
+        'voucherIssued': false,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('Error keeping home delivery: $e');
+      notifyListeners();
+    }
+  }
+
   Future<void> acceptPickupOffer() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
@@ -327,7 +489,10 @@ class DemoDeliveryStore extends ChangeNotifier {
           'receiverId': uid,
           'nodeId': nodeId,
           'nodeName': nodeName,
-          'cashbackAmount': cashbackAmount,
+          'cashbackAmount': voucherAmount,
+          'voucherAmount': voucherAmount,
+          'nodeLat': nodeLatitude,
+          'nodeLng': nodeLongitude,
         }),
       );
     } catch (e) {
@@ -351,6 +516,8 @@ class DemoDeliveryStore extends ChangeNotifier {
         'status': 'delivered_to_node',
         'selectedNodeId': nodeId,
         'selectedNodeName': nodeName,
+        'selectedNodeLat': nodeLatitude,
+        'selectedNodeLng': nodeLongitude,
         'mitraReceivedAt': FieldValue.serverTimestamp(),
         'mitraReceiveSource': source,
         'updatedAt': FieldValue.serverTimestamp(),
@@ -368,6 +535,7 @@ class DemoDeliveryStore extends ChangeNotifier {
       dropoffConfirmed = true;
       offerAccepted = true;
       offerCreated = true;
+      homeDeliverySelected = false;
 
       _addLocalAiMessage(
         sender: 'Mitra',
@@ -406,6 +574,7 @@ class DemoDeliveryStore extends ChangeNotifier {
       dropoffConfirmed = true;
       offerAccepted = true;
       offerCreated = true;
+      homeDeliverySelected = false;
 
       _addLocalAiMessage(
         sender: 'Mitra',
@@ -516,6 +685,8 @@ class DemoDeliveryStore extends ChangeNotifier {
     }
 
     try {
+      final defaultNode = availableNodes.first;
+
       await FirebaseFirestore.instance
           .collection('deliveries')
           .doc(_deliveryId)
@@ -526,11 +697,17 @@ class DemoDeliveryStore extends ChangeNotifier {
         'driverName': driverName,
         'status': 'on_delivery',
         'delayMinutes': 0,
-        'selectedNodeId': null,
-        'selectedNodeName': null,
+        'homeDeliverySelected': false,
+        'voucherIssued': false,
+        'selectedNodeId': defaultNode.id,
+        'selectedNodeName': defaultNode.name,
+        'selectedNodeLat': defaultNode.latitude,
+        'selectedNodeLng': defaultNode.longitude,
         'otpCode': '',
         'updatedAt': FieldValue.serverTimestamp(),
       });
+
+      selectPickupNode(defaultNode);
     } catch (e) {
       debugPrint('Error resetting demo: $e');
       _localReset();
@@ -544,6 +721,7 @@ class DemoDeliveryStore extends ChangeNotifier {
     offerCreated = true;
     offerAccepted = false;
     dropoffConfirmed = false;
+    homeDeliverySelected = false;
 
     aiMessages
       ..clear()
@@ -562,13 +740,13 @@ class DemoDeliveryStore extends ChangeNotifier {
           sender: 'Flexi AI',
           type: 'reason',
           message:
-              'Current delay estimate is 20 minutes. Cost of delay is higher than Rp5.000 cashback.',
+              'Current delay estimate is 20 minutes. Offering a pickup voucher is cheaper than forcing the courier through traffic.',
         ),
-        const AiChatMessage(
+        AiChatMessage(
           sender: 'Flexi AI',
           type: 'select_node',
           message:
-              'Recommended node found: Indomaret Ahmad Yani, 75m from receiver, with 6 available slots.',
+              'Recommended node found: $nodeName, $nodeDistance from receiver, with $nodeCapacity.',
         ),
         const AiChatMessage(
           sender: 'Flexi AI',
@@ -584,6 +762,7 @@ class DemoDeliveryStore extends ChangeNotifier {
     status = DemoDeliveryStatus.reroutedToNode;
     offerCreated = true;
     offerAccepted = true;
+    homeDeliverySelected = false;
     dropoffConfirmed = false;
     otpCode = safeOtpCode;
 
@@ -593,15 +772,15 @@ class DemoDeliveryStore extends ChangeNotifier {
         type: 'receiver',
         message: 'Accept & Pick Up selected.',
       ),
-      const AiChatMessage(
+      AiChatMessage(
         sender: 'System',
         type: 'system',
-        message: 'Delivery destination updated to Indomaret Ahmad Yani.',
+        message: 'Delivery destination updated to $nodeName.',
       ),
-      const AiChatMessage(
+      AiChatMessage(
         sender: 'Flexi AI',
         type: 'action',
-        message: 'Driver route has been updated to the selected pickup node.',
+        message: 'Driver route has been updated. Pickup voucher $formattedVoucher will be issued.',
       ),
     ]);
 
@@ -609,13 +788,26 @@ class DemoDeliveryStore extends ChangeNotifier {
   }
 
   void _localReset() {
+    final defaultNode = availableNodes.first;
+
     status = DemoDeliveryStatus.onDelivery;
     trafficStatus = 'normal';
     delayMinutes = 0;
     offerCreated = false;
     offerAccepted = false;
     dropoffConfirmed = false;
+    homeDeliverySelected = false;
     otpCode = '';
+
+    nodeId = defaultNode.id;
+    nodeName = defaultNode.name;
+    nodeDistance = defaultNode.distance;
+    walkingTime = defaultNode.walkingTime;
+    nodeStatus = defaultNode.status;
+    nodeCapacity = defaultNode.capacity;
+    nodeLatitude = defaultNode.latitude;
+    nodeLongitude = defaultNode.longitude;
+    voucherAmount = defaultNode.voucherAmount;
 
     aiMessages
       ..clear()
@@ -635,6 +827,7 @@ class DemoDeliveryStore extends ChangeNotifier {
     required String sender,
     required String type,
     required String message,
+    bool shouldNotify = true,
   }) {
     aiMessages.add(
       AiChatMessage(
@@ -643,6 +836,10 @@ class DemoDeliveryStore extends ChangeNotifier {
         message: message,
       ),
     );
+
+    if (shouldNotify) {
+      notifyListeners();
+    }
   }
 }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/demo_delivery_store.dart';
 import 'flexi_ui.dart';
+import 'live_route_preview.dart';
 
 class FlexiPickupOfferPage extends StatelessWidget {
   const FlexiPickupOfferPage({super.key});
@@ -33,7 +34,10 @@ class FlexiPickupOfferPage extends StatelessWidget {
                     children: [
                       const CircleAvatar(
                         backgroundColor: FlexiColors.lightGreen,
-                        child: Icon(Icons.notifications_active_outlined, color: FlexiColors.primary),
+                        child: Icon(
+                          Icons.notifications_active_outlined,
+                          color: FlexiColors.primary,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -42,11 +46,14 @@ class FlexiPickupOfferPage extends StatelessWidget {
                             children: [
                               const TextSpan(
                                 text: 'Flexi Pickup Offer\n',
-                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w900,
+                                ),
                               ),
                               TextSpan(
                                 text:
-                                    'Your courier is delayed by traffic. Pick up at ${store.nodeName}, ${store.nodeDistance} away, and get ${store.formattedCashback} cashback.',
+                                    'Your courier is delayed by traffic. Pick up at ${store.nodeName}, ${store.nodeDistance} away, and get a ${store.formattedVoucher} voucher.',
                                 style: const TextStyle(
                                   fontSize: 12.5,
                                   color: FlexiColors.muted,
@@ -61,7 +68,12 @@ class FlexiPickupOfferPage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 18),
-                const MiniMap(height: 180, showNode: true, showCustomer: true, routeToNode: true),
+                const LiveRoutePreview(
+                  height: 210,
+                  mode: 'receiver',
+                  forceDestinationToSelectedNode: true,
+                  showOpenButton: true,
+                ),
                 const SizedBox(height: 18),
                 FlexiCard(
                   child: Column(
@@ -76,12 +88,18 @@ class FlexiPickupOfferPage extends StatelessWidget {
                       const SizedBox(height: 14),
                       Text(
                         store.nodeName,
-                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                       const SizedBox(height: 6),
-                      const Text(
-                        'A nearby partner node selected by Flexi AI.',
-                        style: TextStyle(color: FlexiColors.muted, fontSize: 13),
+                      Text(
+                        '${store.nodeDistance} away • ${store.walkingTime} walk • ${store.nodeCapacity}',
+                        style: const TextStyle(
+                          color: FlexiColors.muted,
+                          fontSize: 13,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       _OfferStats(store: store),
@@ -94,11 +112,15 @@ class FlexiPickupOfferPage extends StatelessWidget {
                         ),
                         child: const Row(
                           children: [
-                            Icon(Icons.verified_user_outlined, color: FlexiColors.primary, size: 22),
+                            Icon(
+                              Icons.verified_user_outlined,
+                              color: FlexiColors.primary,
+                              size: 22,
+                            ),
                             SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                'OTP handover protected. Your package can only be released using your pickup code.',
+                                'OTP handover protected. Your package can only be released using your pickup QR.',
                                 style: TextStyle(
                                   color: FlexiColors.primary,
                                   fontSize: 12.5,
@@ -111,7 +133,9 @@ class FlexiPickupOfferPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 18),
                       FlexiPrimaryButton(
-                        label: store.offerAccepted ? 'Offer Accepted' : 'Accept & Pick Up',
+                        label: store.offerAccepted
+                            ? 'Offer Accepted'
+                            : 'Accept & Pick Up',
                         icon: Icons.check_circle_outline,
                         onPressed: () {
                           store.acceptPickupOffer();
@@ -120,8 +144,32 @@ class FlexiPickupOfferPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 10),
                       FlexiOutlineButton(
+                        label: 'Change Pickup Node',
+                        icon: Icons.storefront,
+                        onPressed: () => Navigator.pushNamed(
+                          context,
+                          '/nearby-nodes',
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      FlexiOutlineButton(
                         label: 'Keep Door-to-Door Delivery',
-                        onPressed: () => Navigator.pop(context),
+                        icon: Icons.home_outlined,
+                        onPressed: () async {
+                          await store.keepHomeDelivery();
+
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Home delivery selected. No voucher will be issued.',
+                                ),
+                              ),
+                            );
+
+                            Navigator.pushNamed(context, '/tracking');
+                          }
+                        },
                       ),
                     ],
                   ),
@@ -145,7 +193,7 @@ class _OfferStats extends StatelessWidget {
     final items = [
       _Stat(Icons.place_outlined, store.nodeDistance, 'Distance'),
       _Stat(Icons.directions_walk, store.walkingTime, 'Walk'),
-      _Stat(Icons.payments_outlined, store.formattedCashback, 'Cashback'),
+      _Stat(Icons.confirmation_num_outlined, store.formattedVoucher, 'Voucher'),
     ];
 
     return Row(
@@ -154,25 +202,38 @@ class _OfferStats extends StatelessWidget {
             (item) => Expanded(
               child: Container(
                 margin: const EdgeInsets.only(right: 8),
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 6,
+                ),
                 decoration: BoxDecoration(
                   color: FlexiColors.bg,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
                   children: [
-                    Icon(item.icon, color: FlexiColors.primary, size: 20),
+                    Icon(
+                      item.icon,
+                      color: FlexiColors.primary,
+                      size: 20,
+                    ),
                     const SizedBox(height: 6),
                     Text(
                       item.value,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       item.label,
-                      style: const TextStyle(fontSize: 10.5, color: FlexiColors.muted),
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        color: FlexiColors.muted,
+                      ),
                     ),
                   ],
                 ),

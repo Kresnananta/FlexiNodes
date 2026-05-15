@@ -7,11 +7,11 @@ import 'flexi_ui.dart';
 class QrScannerPage extends StatefulWidget {
   const QrScannerPage({
     super.key,
-    this.expectedType,
+    required this.expectedType,
     this.title = 'Scan QR',
   });
 
-  final String? expectedType;
+  final String expectedType;
   final String title;
 
   @override
@@ -26,6 +26,9 @@ class _QrScannerPageState extends State<QrScannerPage> {
 
   bool isProcessing = false;
   String? lastValue;
+
+  bool get isDriverScan => widget.expectedType == 'driver_dropoff';
+  bool get isReceiverScan => widget.expectedType == 'receiver_pickup';
 
   @override
   void dispose() {
@@ -56,7 +59,9 @@ class _QrScannerPageState extends State<QrScannerPage> {
         barrierDismissible: false,
         builder: (context) {
           return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
             title: const Text('QR Scan Success'),
             content: Text(message),
             actions: [
@@ -87,6 +92,18 @@ class _QrScannerPageState extends State<QrScannerPage> {
 
   @override
   Widget build(BuildContext context) {
+    final String instructionTitle = isDriverScan
+        ? 'Scan Driver Package QR'
+        : isReceiverScan
+            ? 'Scan Receiver Pickup QR'
+            : 'Scan Flexi QR';
+
+    final String instructionBody = isDriverScan
+        ? 'Ask the driver to show the package QR. Scanning it will mark the package as stored at the mitra node.'
+        : isReceiverScan
+            ? 'Ask the receiver to show their pickup QR. Scanning it will verify OTP and complete the pickup.'
+            : 'Point the camera at a valid Flexi Nodes QR code.';
+
     return Scaffold(
       backgroundColor: FlexiColors.bg,
       appBar: FlexiAppBar(
@@ -94,11 +111,17 @@ class _QrScannerPageState extends State<QrScannerPage> {
         actions: [
           IconButton(
             onPressed: () => controller.toggleTorch(),
-            icon: const Icon(Icons.flash_on, color: FlexiColors.primary),
+            icon: const Icon(
+              Icons.flash_on,
+              color: FlexiColors.primary,
+            ),
           ),
           IconButton(
             onPressed: () => controller.switchCamera(),
-            icon: const Icon(Icons.cameraswitch, color: FlexiColors.primary),
+            icon: const Icon(
+              Icons.cameraswitch,
+              color: FlexiColors.primary,
+            ),
           ),
         ],
       ),
@@ -121,16 +144,72 @@ class _QrScannerPageState extends State<QrScannerPage> {
                       _handleDetected(rawValue);
                     },
                   ),
+
                   Center(
                     child: Container(
                       width: 240,
                       height: 240,
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.white, width: 3),
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 3,
+                        ),
                         borderRadius: BorderRadius.circular(24),
                       ),
                     ),
                   ),
+
+                  Positioned(
+                    left: 16,
+                    right: 16,
+                    top: 16,
+                    child: FlexiCard(
+                      color: Colors.white.withOpacity(0.95),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          CircleAvatar(
+                            backgroundColor: isDriverScan
+                                ? FlexiColors.orangeSoft
+                                : FlexiColors.lightGreen,
+                            child: Icon(
+                              isDriverScan
+                                  ? Icons.local_shipping_outlined
+                                  : Icons.person_outline,
+                              color: isDriverScan
+                                  ? FlexiColors.orange
+                                  : FlexiColors.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  instructionTitle,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  instructionBody,
+                                  style: const TextStyle(
+                                    color: FlexiColors.muted,
+                                    fontSize: 12.5,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
                   Positioned(
                     left: 16,
                     right: 16,
@@ -141,17 +220,14 @@ class _QrScannerPageState extends State<QrScannerPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            widget.expectedType == 'driver_dropoff'
-                                ? 'Scan driver QR to receive package'
-                                : widget.expectedType == 'receiver_pickup'
-                                    ? 'Scan receiver QR to complete pickup'
-                                    : 'Scan a Flexi Nodes QR',
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            isProcessing ? 'Processing QR...' : 'Point the camera at the QR code.',
-                            style: const TextStyle(color: FlexiColors.muted, fontSize: 12.5),
+                            isProcessing
+                                ? 'Processing QR...'
+                                : 'Point the camera at the correct QR code.',
+                            style: const TextStyle(
+                              color: FlexiColors.text,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                           if (lastValue != null) ...[
                             const SizedBox(height: 6),
@@ -159,7 +235,10 @@ class _QrScannerPageState extends State<QrScannerPage> {
                               lastValue!,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: FlexiColors.muted, fontSize: 11),
+                              style: const TextStyle(
+                                color: FlexiColors.muted,
+                                fontSize: 11,
+                              ),
                             ),
                           ],
                         ],
@@ -169,27 +248,22 @@ class _QrScannerPageState extends State<QrScannerPage> {
                 ],
               ),
             ),
+
             Container(
               color: Colors.white,
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: FlexiOutlineButton(
-                      label: 'Demo Driver Scan',
-                      icon: Icons.local_shipping_outlined,
-                      onPressed: () => _handleDetected(demoDeliveryStore.driverQrPayload),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FlexiOutlineButton(
-                      label: 'Demo Receiver Scan',
-                      icon: Icons.person_outline,
-                      onPressed: () => _handleDetected(demoDeliveryStore.receiverQrPayload),
-                    ),
-                  ),
-                ],
+              child: FlexiOutlineButton(
+                label: isDriverScan
+                    ? 'Use Demo Driver QR'
+                    : 'Use Demo Receiver QR',
+                icon: isDriverScan
+                    ? Icons.local_shipping_outlined
+                    : Icons.person_outline,
+                onPressed: () => _handleDetected(
+                  isDriverScan
+                      ? demoDeliveryStore.driverQrPayload
+                      : demoDeliveryStore.receiverQrPayload,
+                ),
               ),
             ),
           ],

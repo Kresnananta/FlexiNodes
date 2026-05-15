@@ -607,21 +607,41 @@ class _BottomMapActions extends StatelessWidget {
         );
       }
 
-      if (!store.dropoffConfirmed) {
+      if (store.statusText == 'rerouted_to_node') {
         return _BottomContainer(
           child: FlexiPrimaryButton(
-            label: 'Confirm Drop-off',
+            label: 'Show Driver QR',
+            icon: Icons.qr_code_2,
+            onPressed: () => Navigator.pushNamed(context, '/driver-qr'),
+          ),
+        );
+      }
+
+      if (store.statusText == 'delivered_to_node') {
+        return _BottomContainer(
+          child: FlexiPrimaryButton(
+            label: 'Package Stored at Mitra',
+            icon: Icons.inventory_2_outlined,
+            onPressed: () => Navigator.pushNamed(context, '/driver-qr'),
+          ),
+        );
+      }
+
+      if (store.statusText == 'completed') {
+        return _BottomContainer(
+          child: FlexiPrimaryButton(
+            label: 'Delivery Completed',
             icon: Icons.check_circle_outline,
-            onPressed: onConfirmDropoff,
+            onPressed: () => Navigator.pushNamed(context, '/confirmation'),
           ),
         );
       }
 
       return _BottomContainer(
         child: FlexiPrimaryButton(
-          label: 'Drop-off Completed',
-          icon: Icons.inventory_2_outlined,
-          onPressed: () => Navigator.pushNamed(context, '/confirmation'),
+          label: 'Show Driver QR',
+          icon: Icons.qr_code_2,
+          onPressed: () => Navigator.pushNamed(context, '/driver-qr'),
         ),
       );
     }
