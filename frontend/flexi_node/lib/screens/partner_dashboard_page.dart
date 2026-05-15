@@ -27,7 +27,11 @@ class PartnerDashboardPage extends StatelessWidget {
                     const CircleAvatar(
                       radius: 26,
                       backgroundColor: FlexiColors.lightGreen,
-                      child: Icon(Icons.storefront, color: FlexiColors.primary, size: 28),
+                      child: Icon(
+                        Icons.storefront,
+                        color: FlexiColors.primary,
+                        size: 28,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -38,12 +42,18 @@ class PartnerDashboardPage extends StatelessWidget {
                             store.nodeName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w900),
+                            style: const TextStyle(
+                              fontSize: 23,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           const Text(
                             'Mitra dashboard for secure QR handover.',
-                            style: TextStyle(color: FlexiColors.muted, fontSize: 13),
+                            style: TextStyle(
+                              color: FlexiColors.muted,
+                              fontSize: 13,
+                            ),
                           ),
                         ],
                       ),
@@ -64,7 +74,10 @@ class PartnerDashboardPage extends StatelessWidget {
                       const SizedBox(height: 12),
                       Container(
                         padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                         child: QrImageView(
                           data: store.mitraQrPayload,
                           version: QrVersions.auto,
@@ -76,7 +89,11 @@ class PartnerDashboardPage extends StatelessWidget {
                       const Text(
                         'This QR identifies the partner node for secure package handover.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: FlexiColors.muted, fontSize: 12.5, height: 1.35),
+                        style: TextStyle(
+                          color: FlexiColors.muted,
+                          fontSize: 12.5,
+                          height: 1.35,
+                        ),
                       ),
                     ],
                   ),
@@ -86,7 +103,13 @@ class PartnerDashboardPage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Current Package', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                      const Text(
+                        'Current Package',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
                       const SizedBox(height: 12),
                       _InfoRow(label: 'Order ID', value: store.orderId),
                       _InfoRow(label: 'Driver', value: store.driverName),
@@ -105,7 +128,9 @@ class PartnerDashboardPage extends StatelessWidget {
                           ),
                           StatusPill(
                             icon: Icons.inventory_2_outlined,
-                            label: store.dropoffConfirmed ? 'Stored at node' : 'Waiting handover',
+                            label: store.dropoffConfirmed
+                                ? 'Stored at node'
+                                : 'Waiting handover',
                           ),
                         ],
                       ),
@@ -115,23 +140,41 @@ class PartnerDashboardPage extends StatelessWidget {
                 const SizedBox(height: 14),
                 Container(
                   padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(color: FlexiColors.orange, borderRadius: BorderRadius.circular(18)),
+                  decoration: BoxDecoration(
+                    color: FlexiColors.orange,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
                   child: Row(
                     children: [
                       const CircleAvatar(
                         radius: 28,
                         backgroundColor: Colors.white,
-                        child: Icon(Icons.qr_code_scanner, color: FlexiColors.orange, size: 30),
+                        child: Icon(
+                          Icons.qr_code_scanner,
+                          color: FlexiColors.orange,
+                          size: 30,
+                        ),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Text.rich(
                           TextSpan(
                             children: [
-                              const TextSpan(text: 'Scan Package QR\n', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+                              const TextSpan(
+                                text: 'Scan Package QR\n',
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
                               TextSpan(
-                                text: store.dropoffConfirmed ? 'Scan receiver QR to release and complete the package.' : 'Scan driver QR to receive package into this node.',
-                                style: const TextStyle(fontSize: 12.5, height: 1.35),
+                                text: store.dropoffConfirmed
+                                    ? 'Scan receiver QR to release and complete the package.'
+                                    : 'Scan driver QR to receive package into this node.',
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  height: 1.35,
+                                ),
                               ),
                             ],
                           ),
@@ -152,7 +195,10 @@ class PartnerDashboardPage extends StatelessWidget {
                         onPressed: () => Navigator.pushNamed(
                           context,
                           '/qr-scanner',
-                          arguments: {'expectedType': 'driver_dropoff', 'title': 'Scan Driver QR'},
+                          arguments: {
+                            'expectedType': 'driver_dropoff',
+                            'title': 'Scan Driver QR',
+                          },
                         ),
                       ),
                     ),
@@ -164,7 +210,10 @@ class PartnerDashboardPage extends StatelessWidget {
                         onPressed: () => Navigator.pushNamed(
                           context,
                           '/qr-scanner',
-                          arguments: {'expectedType': 'receiver_pickup', 'title': 'Scan Receiver QR'},
+                          arguments: {
+                            'expectedType': 'receiver_pickup',
+                            'title': 'Scan Receiver QR',
+                          },
                         ),
                       ),
                     ),
@@ -177,7 +226,8 @@ class PartnerDashboardPage extends StatelessWidget {
                       child: FlexiOutlineButton(
                         label: 'Show Driver QR',
                         icon: Icons.qr_code_2,
-                        onPressed: () => Navigator.pushNamed(context, '/driver-qr'),
+                        onPressed: () =>
+                            Navigator.pushNamed(context, '/driver-qr'),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -185,24 +235,40 @@ class PartnerDashboardPage extends StatelessWidget {
                       child: FlexiOutlineButton(
                         label: 'Show Receiver QR',
                         icon: Icons.qr_code_2,
-                        onPressed: () => Navigator.pushNamed(context, '/receiver-qr'),
+                        onPressed: () =>
+                            Navigator.pushNamed(context, '/receiver-qr'),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 18),
-                const Text('Handover Timeline', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                const Text(
+                  'Handover Timeline',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                ),
                 const SizedBox(height: 12),
                 FlexiCard(
                   child: Column(
                     children: [
-                      TimelineStep(title: 'Rerouted to partner node', subtitle: 'Receiver accepted Flexi Pickup offer', active: store.offerAccepted || store.shouldRouteToNode),
+                      TimelineStep(
+                        title: 'Rerouted to partner node',
+                        subtitle: 'Receiver accepted Flexi Pickup offer',
+                        active: store.offerAccepted || store.shouldRouteToNode,
+                      ),
                       TimelineStep(
                         title: 'Driver QR scanned by mitra',
-                        subtitle: 'Package stored at Indomaret Ahmad Yani',
-                        active: store.dropoffConfirmed || store.statusText == 'delivered_to_node' || store.statusText == 'completed',
+                        subtitle: 'Package stored at ${store.nodeName}',
+                        active:
+                            store.dropoffConfirmed ||
+                            store.statusText == 'delivered_to_node' ||
+                            store.statusText == 'completed',
                       ),
-                      TimelineStep(title: 'Receiver QR scanned by mitra', subtitle: 'OTP verified and package released', active: store.statusText == 'completed', last: true),
+                      TimelineStep(
+                        title: 'Receiver QR scanned by mitra',
+                        subtitle: 'OTP verified and package released',
+                        active: store.statusText == 'completed',
+                        last: true,
+                      ),
                     ],
                   ),
                 ),
@@ -241,14 +307,23 @@ class _InfoRow extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 9),
       child: Row(
         children: [
-          Expanded(child: Text(label, style: const TextStyle(color: FlexiColors.muted, fontSize: 12.5))),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(color: FlexiColors.muted, fontSize: 12.5),
+            ),
+          ),
           Flexible(
             child: Text(
               value,
               textAlign: TextAlign.right,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: FlexiColors.text, fontSize: 13, fontWeight: FontWeight.w900),
+              style: const TextStyle(
+                color: FlexiColors.text,
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+              ),
             ),
           ),
         ],

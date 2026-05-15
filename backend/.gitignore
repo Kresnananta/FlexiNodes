@@ -6,3 +6,6 @@ serviceAccountKey.json
 
 # Optional: Ignore log files
 /logs
+
+export-firestore.js
+firestore-export.json

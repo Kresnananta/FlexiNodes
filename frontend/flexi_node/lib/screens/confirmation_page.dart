@@ -68,11 +68,15 @@ class ConfirmationPage extends StatelessWidget {
                       _InfoRow(label: 'Pickup location', value: store.nodeName),
                       _InfoRow(
                         label: 'Voucher',
-                        value: store.voucherEligible ? store.formattedVoucher : 'Not issued',
+                        value: store.voucherEligible
+                            ? store.formattedVoucher
+                            : 'Not issued',
                       ),
                       _InfoRow(
                         label: 'Ready time',
-                        value: store.dropoffConfirmed ? 'Ready now' : '14:25',
+                        value: store.dropoffConfirmed
+                            ? 'Ready now'
+                            : store.estimatedArrivalText,
                       ),
                       _InfoRow(label: 'Status', value: store.statusText),
                     ],
@@ -138,7 +142,8 @@ class ConfirmationPage extends StatelessWidget {
                 FlexiOutlineButton(
                   label: 'Open Nearby Nodes',
                   icon: Icons.storefront,
-                  onPressed: () => Navigator.pushNamed(context, '/nearby-nodes'),
+                  onPressed: () =>
+                      Navigator.pushNamed(context, '/nearby-nodes'),
                 ),
               ],
             ),
@@ -150,10 +155,7 @@ class ConfirmationPage extends StatelessWidget {
 }
 
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({
-    required this.label,
-    required this.value,
-  });
+  const _InfoRow({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -167,10 +169,7 @@ class _InfoRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
-                color: FlexiColors.muted,
-                fontSize: 13,
-              ),
+              style: const TextStyle(color: FlexiColors.muted, fontSize: 13),
             ),
           ),
           Flexible(

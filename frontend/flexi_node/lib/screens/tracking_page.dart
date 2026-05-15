@@ -44,10 +44,10 @@ class TrackingPage extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          const Expanded(
+                          Expanded(
                             child: Text(
-                              'Order SD1440-Y',
-                              style: TextStyle(
+                              'Order ${store.orderId}',
+                              style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w900,
                               ),
@@ -57,25 +57,25 @@ class TrackingPage extends StatelessWidget {
                             label: store.homeDeliverySelected
                                 ? 'Home Delivery'
                                 : store.shouldRouteToNode
-                                    ? 'Rerouted'
-                                    : 'Delayed',
+                                ? 'Rerouted'
+                                : 'Delayed',
                             color: store.homeDeliverySelected
                                 ? FlexiColors.blue
                                 : store.shouldRouteToNode
-                                    ? FlexiColors.primary
-                                    : FlexiColors.orange,
+                                ? FlexiColors.primary
+                                : FlexiColors.orange,
                             background: store.homeDeliverySelected
                                 ? FlexiColors.blueSoft
                                 : store.shouldRouteToNode
-                                    ? FlexiColors.lightGreen
-                                    : FlexiColors.orangeSoft,
+                                ? FlexiColors.lightGreen
+                                : FlexiColors.orangeSoft,
                           ),
                         ],
                       ),
                       const SizedBox(height: 10),
-                      const Text(
-                        'Courier: Rizky Fahmi',
-                        style: TextStyle(
+                      Text(
+                        'Courier: ${store.driverName}',
+                        style: const TextStyle(
                           color: FlexiColors.muted,
                           fontSize: 13,
                         ),
@@ -84,7 +84,9 @@ class TrackingPage extends StatelessWidget {
                       Text(
                         store.homeDeliverySelected
                             ? 'You chose to keep door-to-door delivery. No voucher will be issued.'
-                            : 'Estimated delay: 20 minutes',
+                            : store.delayMinutes > 0
+                            ? 'Estimated delay: ${store.delayMinutes} minutes'
+                            : store.activeDeliverySubtitle,
                         style: const TextStyle(
                           color: FlexiColors.muted,
                           fontSize: 13,
@@ -231,10 +233,10 @@ class TrackingPage extends StatelessWidget {
                       TimelineStep(
                         title: store.shouldRouteToNode
                             ? 'Rerouted to pickup node'
-                            : 'Delivered',
+                            : 'Delivery destination',
                         subtitle: store.shouldRouteToNode
                             ? 'Package is heading to ${store.nodeName}'
-                            : 'Waiting for final delivery',
+                            : store.activeDestinationName,
                         active: store.shouldRouteToNode,
                         last: true,
                       ),

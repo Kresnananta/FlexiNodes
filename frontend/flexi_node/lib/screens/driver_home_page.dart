@@ -77,7 +77,7 @@ class DriverHomePage extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const _DriverHeader(),
+                        _DriverHeader(store: store),
                         const SizedBox(height: 14),
                         _DemoControl(store: store),
                         const SizedBox(height: 18),
@@ -164,29 +164,31 @@ class _DemoControl extends StatelessWidget {
 }
 
 class _DriverHeader extends StatelessWidget {
-  const _DriverHeader();
+  const _DriverHeader({required this.store});
+
+  final DemoDeliveryStore store;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Hello, Rizky',
+                'Hello, ${store.driverName.split(' ').first}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
+                style: const TextStyle(
                   color: FlexiColors.text,
                   fontSize: 27,
                   height: 1.1,
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              SizedBox(height: 6),
-              Text(
+              const SizedBox(height: 6),
+              const Text(
                 "Ready for today's deliveries?",
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -465,10 +467,7 @@ class _ActiveRouteCard extends StatelessWidget {
                         onPressed: () => Navigator.pushNamed(
                           context,
                           '/real-map',
-                          arguments: {
-                            'mode': 'driver',
-                            'usePhoneGps': true,
-                          }
+                          arguments: {'mode': 'driver', 'usePhoneGps': true},
                         ),
                       ),
                     ),

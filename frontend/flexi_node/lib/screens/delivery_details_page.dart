@@ -74,9 +74,9 @@ class DeliveryDetailsPage extends StatelessWidget {
                 FlexiCard(
                   child: Column(
                     children: [
-                      const _DetailRow(
+                      _DetailRow(
                         label: 'Original address',
-                        value: 'Jl. Sudirman Kav 52-53, Senayan',
+                        value: store.receiverLocationText,
                       ),
                       _DetailRow(
                         label: 'Current destination',
@@ -102,14 +102,8 @@ class DeliveryDetailsPage extends StatelessWidget {
                             ? store.formattedVoucher
                             : 'Not issued yet',
                       ),
-                      _DetailRow(
-                        label: 'Pickup node',
-                        value: store.nodeName,
-                      ),
-                      _DetailRow(
-                        label: 'Status',
-                        value: store.statusText,
-                      ),
+                      _DetailRow(label: 'Pickup node', value: store.nodeName),
+                      _DetailRow(label: 'Status', value: store.statusText),
                     ],
                   ),
                 ),
@@ -145,20 +139,23 @@ class DeliveryDetailsPage extends StatelessWidget {
                         subtitle: store.homeDeliverySelected
                             ? 'Receiver rejected pickup node offer'
                             : 'Receiver accepted Flexi Pickup at ${store.nodeName}',
-                        active: store.homeDeliverySelected || store.shouldRouteToNode,
+                        active:
+                            store.homeDeliverySelected ||
+                            store.shouldRouteToNode,
                       ),
                       TimelineStep(
                         title: store.statusText == 'completed'
                             ? 'Completed'
                             : store.statusText == 'delivered_to_node'
-                                ? 'Delivered to node'
-                                : 'Waiting for handover',
+                            ? 'Delivered to node'
+                            : 'Waiting for handover',
                         subtitle: store.statusText == 'completed'
                             ? 'Receiver picked up the package'
                             : store.statusText == 'delivered_to_node'
-                                ? 'Waiting for receiver pickup QR'
-                                : 'Driver still needs to show QR to mitra',
-                        active: store.statusText == 'delivered_to_node' ||
+                            ? 'Waiting for receiver pickup QR'
+                            : 'Driver still needs to show QR to mitra',
+                        active:
+                            store.statusText == 'delivered_to_node' ||
                             store.statusText == 'completed',
                         last: true,
                       ),
@@ -177,10 +174,7 @@ class DeliveryDetailsPage extends StatelessWidget {
                         onPressed: () => Navigator.pushNamed(
                           context,
                           '/real-map',
-                          arguments: {
-                            'mode': 'driver',
-                            'usePhoneGps': true,
-                          },
+                          arguments: {'mode': 'driver', 'usePhoneGps': true},
                         ),
                       ),
                     ),
@@ -189,10 +183,8 @@ class DeliveryDetailsPage extends StatelessWidget {
                       child: FlexiOutlineButton(
                         label: 'Driver QR',
                         icon: Icons.qr_code_2,
-                        onPressed: () => Navigator.pushNamed(
-                          context,
-                          '/driver-qr',
-                        ),
+                        onPressed: () =>
+                            Navigator.pushNamed(context, '/driver-qr'),
                       ),
                     ),
                   ],
@@ -215,10 +207,7 @@ class DeliveryDetailsPage extends StatelessWidget {
 }
 
 class _DetailRow extends StatelessWidget {
-  const _DetailRow({
-    required this.label,
-    required this.value,
-  });
+  const _DetailRow({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -234,10 +223,7 @@ class _DetailRow extends StatelessWidget {
             width: 116,
             child: Text(
               label,
-              style: const TextStyle(
-                color: FlexiColors.muted,
-                fontSize: 12.5,
-              ),
+              style: const TextStyle(color: FlexiColors.muted, fontSize: 12.5),
             ),
           ),
           const SizedBox(width: 8),
