@@ -111,7 +111,7 @@ class DemoDeliveryStore extends ChangeNotifier {
 
   DemoDeliveryStatus status = DemoDeliveryStatus.onDelivery;
 
-  final String orderId = 'SD1440-Y';
+  final String orderId = 'paket_001';
   String receiverName = 'Andika Sujanto';
   String driverName = 'Rizky Fahmi';
 
@@ -212,8 +212,11 @@ class DemoDeliveryStore extends ChangeNotifier {
       delayMinutes = data['delayMinutes'] as int? ?? 0;
       trafficStatus = delayMinutes > 15 ? 'heavy' : 'normal';
 
-      receiverName = data['receiverName'] as String? ?? receiverName;
-      driverName = data['driverName'] as String? ?? driverName;
+      final String rId = data['receiverId'] as String? ?? '';
+      final String dId = data['driverId'] as String? ?? '';
+
+      if (rId.isNotEmpty) _fetchReceiverInfo(rId);
+      if (dId.isNotEmpty) _fetchDriverInfo(dId);
 
       nodeId = data['selectedNodeId'] as String? ?? nodeId;
       nodeName = data['selectedNodeName'] as String? ?? nodeName;
@@ -296,11 +299,11 @@ class DemoDeliveryStore extends ChangeNotifier {
 
         if (aiMessages.isEmpty) {
           aiMessages.add(
-            const AiChatMessage(
+            AiChatMessage(
               sender: 'System',
               type: 'system',
               message:
-                  'Delivery SD1440-Y started. Courier is heading to receiver address.',
+                  'Delivery $orderId started. Courier is heading to receiver address.',
             ),
           );
         }
@@ -316,6 +319,15 @@ class DemoDeliveryStore extends ChangeNotifier {
 
   Future<void> _seedDummyData(String uid) async {
     try {
+      // 1. Seed User Profile
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'name': 'Andika Sujanto (Demo)',
+        'email': 'andika.demo@example.com',
+        'homeLocation': const GeoPoint(-7.2815, 112.7525),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      // 2. Seed Delivery Document
       final doc = FirebaseFirestore.instance
           .collection('deliveries')
           .doc(_deliveryId);
@@ -325,18 +337,10 @@ class DemoDeliveryStore extends ChangeNotifier {
       if (!snap.exists || snap.data()?['receiverId'] != uid) {
         await doc.set({
           'receiverId': uid,
-          'receiverName': receiverName,
           'driverId': 'driver_123',
-          'driverName': driverName,
           'status': 'on_delivery',
           'delayMinutes': 0,
-          'homeDeliverySelected': false,
-          'voucherIssued': false,
-          'selectedNodeId': nodeId,
-          'selectedNodeName': nodeName,
-          'selectedNodeLat': nodeLatitude,
-          'selectedNodeLng': nodeLongitude,
-          'otpCode': '',
+          'targetLocation': const GeoPoint(-7.2815, 112.7525),
           'updatedAt': FieldValue.serverTimestamp(),
         });
       }
@@ -692,18 +696,10 @@ class DemoDeliveryStore extends ChangeNotifier {
           .doc(_deliveryId)
           .set({
         'receiverId': uid,
-        'receiverName': receiverName,
         'driverId': 'driver_123',
-        'driverName': driverName,
         'status': 'on_delivery',
         'delayMinutes': 0,
-        'homeDeliverySelected': false,
-        'voucherIssued': false,
-        'selectedNodeId': defaultNode.id,
-        'selectedNodeName': defaultNode.name,
-        'selectedNodeLat': defaultNode.latitude,
-        'selectedNodeLng': defaultNode.longitude,
-        'otpCode': '',
+        'targetLocation': const GeoPoint(-7.2815, 112.7525),
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
@@ -812,11 +808,11 @@ class DemoDeliveryStore extends ChangeNotifier {
     aiMessages
       ..clear()
       ..add(
-        const AiChatMessage(
+        AiChatMessage(
           sender: 'System',
           type: 'system',
           message:
-              'Delivery SD1440-Y started. Courier is heading to receiver address.',
+              'Delivery $orderId started. Courier is heading to receiver address.',
         ),
       );
 
@@ -839,6 +835,30 @@ class DemoDeliveryStore extends ChangeNotifier {
 
     if (shouldNotify) {
       notifyListeners();
+    }
+  }
+
+  Future<void> _fetchReceiverInfo(String uid) async {
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      if (doc.exists) {
+        receiverName = doc.data()?['name'] ?? receiverName;
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error fetching receiver info: $e');
+    }
+  }
+
+  Future<void> _fetchDriverInfo(String uid) async {
+    try {
+      final doc = await FirebaseFirestore.instance.collection('drivers').doc(uid).get();
+      if (doc.exists) {
+        driverName = doc.data()?['name'] ?? driverName;
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error fetching driver info: $e');
     }
   }
 }
