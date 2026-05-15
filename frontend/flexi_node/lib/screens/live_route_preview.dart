@@ -46,6 +46,9 @@ class _LiveRoutePreviewState extends State<LiveRoutePreview> {
 
   bool loadingRoute = false;
   String? routeError;
+  DateTime? lastRouteRefreshAt;
+
+  static const Duration routeRefreshInterval = Duration(seconds: 30);
 
   BitmapDescriptor driverMarkerIcon = BitmapDescriptor.defaultMarkerWithHue(
     BitmapDescriptor.hueAzure,
@@ -137,7 +140,13 @@ class _LiveRoutePreviewState extends State<LiveRoutePreview> {
 
   void _onDeliveryChanged() {
     if (!mounted) return;
-    loadRoute();
+    final now = DateTime.now();
+    if (lastRouteRefreshAt == null ||
+        now.difference(lastRouteRefreshAt!) >= routeRefreshInterval) {
+      loadRoute();
+    } else {
+      setState(() {});
+    }
   }
 
   Future<void> loadRoute() async {
@@ -158,6 +167,7 @@ class _LiveRoutePreviewState extends State<LiveRoutePreview> {
 
       setState(() {
         routePoints = result.points;
+        lastRouteRefreshAt = DateTime.now();
       });
     } catch (e) {
       if (!mounted) return;
@@ -165,6 +175,7 @@ class _LiveRoutePreviewState extends State<LiveRoutePreview> {
       setState(() {
         routeError = e.toString().replaceFirst('Exception: ', '');
         routePoints = [driverLocation, destination];
+        lastRouteRefreshAt = DateTime.now();
       });
     } finally {
       if (!mounted) return;

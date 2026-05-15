@@ -196,9 +196,12 @@ class DemoDeliveryStore extends ChangeNotifier {
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _nodesSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _offersSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _chatSub;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _driverSub;
 
   List<Map<String, dynamic>> _nodeDocs = const [];
   String? _lastGeocodedLatLng;
+  String driverId = 'driver_123';
+  String? _listeningDriverId;
 
   static const String _googleMapsApiKey = String.fromEnvironment(
     'GOOGLE_MAPS_API_KEY',
@@ -274,6 +277,8 @@ class DemoDeliveryStore extends ChangeNotifier {
         _nodesSub?.cancel();
         _offersSub?.cancel();
         _chatSub?.cancel();
+        _driverSub?.cancel();
+        _listeningDriverId = null;
       }
     });
   }
@@ -300,7 +305,10 @@ class DemoDeliveryStore extends ChangeNotifier {
             final String dId = data['driverId'] as String? ?? '';
 
             if (rId.isNotEmpty) _fetchReceiverInfo(rId);
-            if (dId.isNotEmpty) _fetchDriverInfo(dId);
+            if (dId.isNotEmpty) {
+              driverId = dId;
+              _listenToDriverInfo(dId);
+            }
 
             final targetLocation = data['targetLocation'];
             receiverLatitude =
@@ -561,6 +569,7 @@ class DemoDeliveryStore extends ChangeNotifier {
     _nodesSub?.cancel();
     _offersSub?.cancel();
     _chatSub?.cancel();
+    _driverSub?.cancel();
     super.dispose();
   }
 
@@ -678,7 +687,7 @@ class DemoDeliveryStore extends ChangeNotifier {
       'type': 'driver_dropoff',
       'deliveryId': _deliveryId,
       'orderId': orderId,
-      'driverId': 'driver_123',
+      'driverId': driverId,
       'driverName': driverName,
       'nodeId': nodeId,
       'nodeName': nodeName,
@@ -821,6 +830,24 @@ class DemoDeliveryStore extends ChangeNotifier {
       );
 
       notifyListeners();
+    }
+  }
+
+  Future<void> updateDriverLiveLocation({
+    required double latitude,
+    required double longitude,
+  }) async {
+    driverLatitude = latitude;
+    driverLongitude = longitude;
+    notifyListeners();
+
+    try {
+      await FirebaseFirestore.instance.collection('drivers').doc(driverId).set({
+        'currentLocation': GeoPoint(latitude, longitude),
+        'lastLocationUpdatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Error updating driver live location: $e');
     }
   }
 
@@ -1159,23 +1186,32 @@ class DemoDeliveryStore extends ChangeNotifier {
     }
   }
 
-  Future<void> _fetchDriverInfo(String uid) async {
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('drivers')
-          .doc(uid)
-          .get();
-      if (doc.exists) {
-        final data = doc.data();
-        driverName = data?['name'] ?? driverName;
-        final currentLocation = data?['currentLocation'];
-        driverLatitude = _readGeoLatitude(currentLocation) ?? driverLatitude;
-        driverLongitude = _readGeoLongitude(currentLocation) ?? driverLongitude;
-        notifyListeners();
-      }
-    } catch (e) {
-      debugPrint('Error fetching driver info: $e');
-    }
+  void _listenToDriverInfo(String uid) {
+    if (_listeningDriverId == uid) return;
+
+    _driverSub?.cancel();
+    _listeningDriverId = uid;
+    _driverSub = FirebaseFirestore.instance
+        .collection('drivers')
+        .doc(uid)
+        .snapshots()
+        .listen(
+          (doc) {
+            if (!doc.exists) return;
+
+            final data = doc.data();
+            driverName = data?['name'] ?? driverName;
+            final currentLocation = data?['currentLocation'];
+            driverLatitude =
+                _readGeoLatitude(currentLocation) ?? driverLatitude;
+            driverLongitude =
+                _readGeoLongitude(currentLocation) ?? driverLongitude;
+            notifyListeners();
+          },
+          onError: (e) {
+            debugPrint('Firestore driver listener error: $e');
+          },
+        );
   }
 
   Future<void> _resolveReceiverAddress() async {
