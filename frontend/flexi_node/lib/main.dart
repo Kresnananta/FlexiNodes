@@ -23,9 +23,7 @@ import 'screens/driver_qr_page.dart';
 import 'screens/receiver_qr_page.dart';
 
 import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

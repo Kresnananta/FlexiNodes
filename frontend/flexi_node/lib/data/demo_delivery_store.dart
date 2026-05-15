@@ -1,9 +1,13 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
+
+import '../services/geocoding_service.dart';
 
 enum DemoDeliveryStatus {
   onDelivery,
@@ -62,14 +66,33 @@ class DemoPickupNode {
   final bool recommended;
 }
 
+class DemoOrderSummary {
+  const DemoOrderSummary({
+    required this.id,
+    required this.status,
+    required this.subtitle,
+    required this.statusText,
+    required this.delayMinutes,
+    required this.isActive,
+  });
+
+  final String id;
+  final DemoDeliveryStatus status;
+  final String subtitle;
+  final String statusText;
+  final int delayMinutes;
+  final bool isActive;
+}
+
 class DemoDeliveryStore extends ChangeNotifier {
   DemoDeliveryStore() {
+    pickupNodes = List<DemoPickupNode>.of(fallbackNodes);
     _initAuth();
   }
 
   final String _deliveryId = 'paket_001';
 
-  static const List<DemoPickupNode> availableNodes = [
+  static const List<DemoPickupNode> fallbackNodes = [
     DemoPickupNode(
       id: 'node_001',
       name: 'Indomaret Ahmad Yani',
@@ -109,22 +132,37 @@ class DemoDeliveryStore extends ChangeNotifier {
     ),
   ];
 
+  // Backward-compatible fallback for older screens. New code should use
+  // [pickupNodes] so it reflects Firestore.
+  static const List<DemoPickupNode> availableNodes = fallbackNodes;
+
+  List<DemoPickupNode> pickupNodes = const [];
+
   DemoDeliveryStatus status = DemoDeliveryStatus.onDelivery;
 
-  final String orderId = 'paket_001';
-  String receiverName = 'Andika Sujanto';
+  String orderId = 'paket_001';
+  String receiverName = 'Budiman';
+  String receiverEmail = 'andika@example.com';
+  String receiverAddress = '';
   String driverName = 'Rizky Fahmi';
 
-  String nodeId = availableNodes.first.id;
-  String nodeName = availableNodes.first.name;
-  String nodeDistance = availableNodes.first.distance;
-  String walkingTime = availableNodes.first.walkingTime;
-  String nodeStatus = availableNodes.first.status;
-  String nodeCapacity = availableNodes.first.capacity;
-  double nodeLatitude = availableNodes.first.latitude;
-  double nodeLongitude = availableNodes.first.longitude;
+  String nodeId = fallbackNodes.first.id;
+  String nodeName = fallbackNodes.first.name;
+  String nodeDistance = fallbackNodes.first.distance;
+  String walkingTime = fallbackNodes.first.walkingTime;
+  String nodeStatus = fallbackNodes.first.status;
+  String nodeCapacity = fallbackNodes.first.capacity;
+  double nodeLatitude = fallbackNodes.first.latitude;
+  double nodeLongitude = fallbackNodes.first.longitude;
 
-  int voucherAmount = availableNodes.first.voucherAmount;
+  double receiverLatitude = -7.2815;
+  double receiverLongitude = 112.7525;
+  double driverLatitude = -7.28;
+  double driverLongitude = 112.75;
+
+  int voucherAmount = fallbackNodes.first.voucherAmount;
+  String? voucherCode;
+  String? offerReason;
   String otpCode = '';
 
   String trafficStatus = 'normal';
@@ -144,11 +182,38 @@ class DemoDeliveryStore extends ChangeNotifier {
     ),
   ];
 
+  List<DemoOrderSummary> orders = const [];
+
   String get deliveryId => _deliveryId;
+
+  StreamSubscription<User?>? _authSub;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _deliverySub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _ordersSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _nodesSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _offersSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _chatSub;
+
+  List<Map<String, dynamic>> _nodeDocs = const [];
+  String? _lastGeocodedLatLng;
+
+  static const String _googleMapsApiKey = String.fromEnvironment(
+    'GOOGLE_MAPS_API_KEY',
+  );
+  static const String _googleRoutesApiKey = String.fromEnvironment(
+    'GOOGLE_ROUTES_API_KEY',
+  );
+  static const String _webIndexMapsApiKey =
+      'AIzaSyCBA6L9i7NiCVCcEECuwYKd8ej6xQni8DY';
+
+  String get _geocodingApiKey {
+    if (_googleMapsApiKey.isNotEmpty) return _googleMapsApiKey;
+    if (_googleRoutesApiKey.isNotEmpty) return _googleRoutesApiKey;
+    return _webIndexMapsApiKey;
+  }
 
   // Online Cloud Function / Cloud Run API
   String get _apiUrl {
-    return 'https://api-mw5zqv12rq-uc.a.run.app';
+    return 'https://api-mw5zqvl2rq-uc.a.run.app';
   }
 
   // Use this instead if you want local Firebase emulator API:
@@ -161,9 +226,11 @@ class DemoDeliveryStore extends ChangeNotifier {
   */
 
   DemoPickupNode get selectedNode {
-    return availableNodes.firstWhere(
+    final nodes = pickupNodes.isEmpty ? fallbackNodes : pickupNodes;
+
+    return nodes.firstWhere(
       (node) => node.id == nodeId,
-      orElse: () => availableNodes.first,
+      orElse: () => nodes.first,
     );
   }
 
@@ -190,174 +257,320 @@ class DemoDeliveryStore extends ChangeNotifier {
   }
 
   void _initAuth() {
-    FirebaseAuth.instance.authStateChanges().listen((user) {
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
       if (user != null) {
+        _listenToNodes();
         _listenToDelivery();
+        _listenToOrders();
+        _listenToOffers();
         _listenToChat();
-        _seedDummyData(user.uid);
+      } else {
+        _deliverySub?.cancel();
+        _ordersSub?.cancel();
+        _nodesSub?.cancel();
+        _offersSub?.cancel();
+        _chatSub?.cancel();
       }
     });
   }
 
   void _listenToDelivery() {
-    FirebaseFirestore.instance
+    _deliverySub?.cancel();
+    _deliverySub = FirebaseFirestore.instance
         .collection('deliveries')
         .doc(_deliveryId)
         .snapshots()
-        .listen((doc) {
-      if (!doc.exists) return;
+        .listen(
+          (doc) {
+            if (!doc.exists) return;
 
-      final data = doc.data()!;
+            final data = doc.data()!;
 
-      delayMinutes = data['delayMinutes'] as int? ?? 0;
-      trafficStatus = delayMinutes > 15 ? 'heavy' : 'normal';
+            orderId = data['orderId']?.toString() ?? doc.id;
+            delayMinutes = _readInt(
+              data['delayMinutes'] ?? data['current_traffic_delay'],
+            );
+            trafficStatus = delayMinutes > 15 ? 'heavy' : 'normal';
 
-      final String rId = data['receiverId'] as String? ?? '';
-      final String dId = data['driverId'] as String? ?? '';
+            final String rId = data['receiverId'] as String? ?? '';
+            final String dId = data['driverId'] as String? ?? '';
 
-      if (rId.isNotEmpty) _fetchReceiverInfo(rId);
-      if (dId.isNotEmpty) _fetchDriverInfo(dId);
+            if (rId.isNotEmpty) _fetchReceiverInfo(rId);
+            if (dId.isNotEmpty) _fetchDriverInfo(dId);
 
-      nodeId = data['selectedNodeId'] as String? ?? nodeId;
-      nodeName = data['selectedNodeName'] as String? ?? nodeName;
-      nodeLatitude = (data['selectedNodeLat'] as num?)?.toDouble() ?? nodeLatitude;
-      nodeLongitude = (data['selectedNodeLng'] as num?)?.toDouble() ?? nodeLongitude;
+            final targetLocation = data['targetLocation'];
+            receiverLatitude =
+                _readGeoLatitude(targetLocation) ??
+                (data['target_latitude'] as num?)?.toDouble() ??
+                receiverLatitude;
+            receiverLongitude =
+                _readGeoLongitude(targetLocation) ??
+                (data['target_longitude'] as num?)?.toDouble() ??
+                receiverLongitude;
+            receiverAddress =
+                data['targetAddress']?.toString() ??
+                data['receiverAddress']?.toString() ??
+                receiverAddress;
+            _resolveReceiverAddress();
 
-      final matchedNode = availableNodes.where((node) => node.id == nodeId).toList();
-      if (matchedNode.isNotEmpty) {
-        nodeDistance = matchedNode.first.distance;
-        walkingTime = matchedNode.first.walkingTime;
-        nodeStatus = matchedNode.first.status;
-        nodeCapacity = matchedNode.first.capacity;
-        voucherAmount = matchedNode.first.voucherAmount;
-      }
+            final aiOffer = data['ai_offer'];
+            if (aiOffer is Map) {
+              nodeId = aiOffer['node_id']?.toString() ?? nodeId;
+              voucherAmount = _readInt(
+                aiOffer['cashback_amount'],
+                fallback: voucherAmount,
+              );
+              offerReason = aiOffer['reason']?.toString() ?? offerReason;
+            }
 
-      otpCode = data['otpCode']?.toString() ?? otpCode;
-      homeDeliverySelected = data['homeDeliverySelected'] as bool? ?? homeDeliverySelected;
+            nodeId = data['selectedNodeId'] as String? ?? nodeId;
+            nodeName = data['selectedNodeName'] as String? ?? nodeName;
+            nodeLatitude =
+                (data['selectedNodeLat'] as num?)?.toDouble() ?? nodeLatitude;
+            nodeLongitude =
+                (data['selectedNodeLng'] as num?)?.toDouble() ?? nodeLongitude;
+            _rebuildPickupNodes();
+            _applySelectedNodeFromList(keepOfferVoucher: offerCreated);
 
-      final String docStatus = data['status'] as String? ?? 'on_delivery';
+            otpCode = data['otpCode']?.toString() ?? otpCode;
+            homeDeliverySelected =
+                data['homeDeliverySelected'] as bool? ?? homeDeliverySelected;
 
-      if (docStatus == 'on_delivery' && delayMinutes > 15 && !homeDeliverySelected) {
-        status = DemoDeliveryStatus.offerPending;
-        offerCreated = true;
-      } else if (docStatus == 'rerouted_to_node') {
-        status = DemoDeliveryStatus.reroutedToNode;
-        offerAccepted = true;
-        offerCreated = true;
-        homeDeliverySelected = false;
-      } else if (docStatus == 'delivered_to_node') {
-        status = DemoDeliveryStatus.deliveredToNode;
-        offerAccepted = true;
-        offerCreated = true;
-        dropoffConfirmed = true;
-        homeDeliverySelected = false;
-      } else if (docStatus == 'completed') {
-        status = DemoDeliveryStatus.completed;
-        offerAccepted = true;
-        offerCreated = true;
-        dropoffConfirmed = true;
-        homeDeliverySelected = false;
-      } else {
-        status = DemoDeliveryStatus.onDelivery;
-        offerCreated = false;
-        offerAccepted = false;
-        dropoffConfirmed = false;
-      }
+            final String docStatus = data['status'] as String? ?? 'on_delivery';
 
-      notifyListeners();
-    }, onError: (e) {
-      debugPrint('Firestore delivery listener error: $e');
-    });
+            if (docStatus == 'on_delivery' &&
+                delayMinutes > 15 &&
+                !homeDeliverySelected) {
+              status = DemoDeliveryStatus.offerPending;
+              offerCreated = true;
+            } else if (docStatus == 'rerouted_to_node') {
+              status = DemoDeliveryStatus.reroutedToNode;
+              offerAccepted = true;
+              offerCreated = true;
+              homeDeliverySelected = false;
+            } else if (docStatus == 'delivered_to_node') {
+              status = DemoDeliveryStatus.deliveredToNode;
+              offerAccepted = true;
+              offerCreated = true;
+              dropoffConfirmed = true;
+              homeDeliverySelected = false;
+            } else if (docStatus == 'completed') {
+              status = DemoDeliveryStatus.completed;
+              offerAccepted = true;
+              offerCreated = true;
+              dropoffConfirmed = true;
+              homeDeliverySelected = false;
+            } else {
+              status = DemoDeliveryStatus.onDelivery;
+              offerCreated = false;
+              offerAccepted = false;
+              dropoffConfirmed = false;
+            }
+
+            notifyListeners();
+          },
+          onError: (e) {
+            debugPrint('Firestore delivery listener error: $e');
+          },
+        );
+  }
+
+  void _listenToOrders() {
+    _ordersSub?.cancel();
+    _ordersSub = FirebaseFirestore.instance
+        .collection('deliveries')
+        .snapshots()
+        .listen(
+          (snapshot) {
+            final summaries =
+                snapshot.docs.map((doc) {
+                  final data = doc.data();
+                  final rawStatus = data['status']?.toString() ?? 'on_delivery';
+                  final mappedStatus = _statusFromText(rawStatus);
+                  final delay = _readInt(
+                    data['delayMinutes'] ?? data['current_traffic_delay'],
+                  );
+                  return DemoOrderSummary(
+                    id: data['orderId']?.toString() ?? doc.id,
+                    status: mappedStatus,
+                    subtitle: _orderSubtitle(mappedStatus, delay),
+                    statusText: _orderStatusLabel(mappedStatus, delay),
+                    delayMinutes: delay,
+                    isActive: doc.id == _deliveryId,
+                  );
+                }).toList()..sort((a, b) {
+                  if (a.isActive && !b.isActive) return -1;
+                  if (!a.isActive && b.isActive) return 1;
+                  return a.id.compareTo(b.id);
+                });
+
+            orders = summaries;
+            notifyListeners();
+          },
+          onError: (e) {
+            debugPrint('Firestore orders listener error: $e');
+          },
+        );
+  }
+
+  void _listenToNodes() {
+    _nodesSub?.cancel();
+    _nodesSub = FirebaseFirestore.instance
+        .collection('nodes')
+        .snapshots()
+        .listen(
+          (snapshot) {
+            _nodeDocs = snapshot.docs
+                .map((doc) => {'id': doc.id, 'data': doc.data()})
+                .toList();
+
+            _rebuildPickupNodes();
+            _applySelectedNodeFromList();
+            notifyListeners();
+          },
+          onError: (e) {
+            debugPrint('Firestore nodes listener error: $e');
+          },
+        );
+  }
+
+  void _listenToOffers() {
+    _offersSub?.cancel();
+    _offersSub = FirebaseFirestore.instance
+        .collection('offers')
+        .where('deliveryId', isEqualTo: _deliveryId)
+        .snapshots()
+        .listen(
+          (snapshot) {
+            final docs = snapshot.docs.toList()
+              ..sort((a, b) {
+                final aTime = _readDateTime(a.data()['offeredAt']);
+                final bTime = _readDateTime(b.data()['offeredAt']);
+                if (aTime == null && bTime == null) return 0;
+                if (aTime == null) return 1;
+                if (bTime == null) return -1;
+                return bTime.compareTo(aTime);
+              });
+
+            if (docs.isEmpty) return;
+
+            final acceptedDocs = docs
+                .where((doc) => doc.data()['status'] == 'accepted')
+                .toList();
+            final pendingDocs = docs
+                .where((doc) => doc.data()['status'] == 'pending')
+                .toList();
+            final preferred = acceptedDocs.isNotEmpty
+                ? acceptedDocs.first
+                : pendingDocs.isNotEmpty
+                ? pendingDocs.first
+                : docs.first;
+            final data = preferred.data();
+
+            offerCreated = true;
+            offerAccepted = data['status'] == 'accepted' || offerAccepted;
+            nodeId = data['nodeId']?.toString() ?? nodeId;
+            nodeName = data['nodeName']?.toString() ?? nodeName;
+            nodeDistance = _formatMeters(_readInt(data['distanceMeters']));
+            voucherAmount = _voucherAmountFromOffer(
+              data,
+              fallback: voucherAmount,
+            );
+            voucherCode = data['voucherCode']?.toString() ?? voucherCode;
+            offerReason = data['reason']?.toString() ?? offerReason;
+
+            _rebuildPickupNodes();
+            _applySelectedNodeFromList(keepOfferVoucher: true);
+
+            if (status == DemoDeliveryStatus.onDelivery &&
+                data['status'] == 'pending' &&
+                !homeDeliverySelected) {
+              status = DemoDeliveryStatus.offerPending;
+            }
+
+            notifyListeners();
+          },
+          onError: (e) {
+            debugPrint('Firestore offers listener error: $e');
+          },
+        );
   }
 
   void _listenToChat() {
-    FirebaseFirestore.instance
+    _chatSub?.cancel();
+    _chatSub = FirebaseFirestore.instance
         .collection('AI_message')
-        .where(
-          'receiverId',
-          isEqualTo: FirebaseAuth.instance.currentUser?.uid,
-        )
+        .where('deliveryId', isEqualTo: _deliveryId)
         .snapshots()
-        .listen((snapshot) {
-      try {
-        final docs = snapshot.docs.toList();
+        .listen(
+          (snapshot) {
+            try {
+              final docs = snapshot.docs.toList();
 
-        docs.sort((a, b) {
-          final tA = a.data()['createdAt'] as Timestamp?;
-          final tB = b.data()['createdAt'] as Timestamp?;
+              docs.sort((a, b) {
+                final tA = _readDateTime(a.data()['createdAt']);
+                final tB = _readDateTime(b.data()['createdAt']);
 
-          if (tA == null && tB == null) return 0;
-          if (tA == null) return 1;
-          if (tB == null) return -1;
+                if (tA == null && tB == null) return 0;
+                if (tA == null) return 1;
+                if (tB == null) return -1;
 
-          return tA.compareTo(tB);
-        });
+                return tA.compareTo(tB);
+              });
 
-        aiMessages = docs.map((doc) {
-          return AiChatMessage.fromJson(doc.data());
-        }).toList();
+              aiMessages = docs.map((doc) {
+                return AiChatMessage.fromJson(doc.data());
+              }).toList();
 
-        if (aiMessages.isEmpty) {
-          aiMessages.add(
-            AiChatMessage(
-              sender: 'System',
-              type: 'system',
-              message:
-                  'Delivery $orderId started. Courier is heading to receiver address.',
-            ),
-          );
-        }
+              if (aiMessages.isEmpty) {
+                aiMessages.add(
+                  AiChatMessage(
+                    sender: 'System',
+                    type: 'system',
+                    message:
+                        'Delivery $orderId started. Courier is heading to receiver address.',
+                  ),
+                );
+              }
 
-        notifyListeners();
-      } catch (e) {
-        debugPrint('Error processing chat snapshot: $e');
-      }
-    }, onError: (e) {
-      debugPrint('Firestore chat listener error: $e');
-    });
+              notifyListeners();
+            } catch (e) {
+              debugPrint('Error processing chat snapshot: $e');
+            }
+          },
+          onError: (e) {
+            debugPrint('Firestore chat listener error: $e');
+          },
+        );
   }
 
-  Future<void> _seedDummyData(String uid) async {
-    try {
-      // 1. Seed User Profile
-      await FirebaseFirestore.instance.collection('users').doc(uid).set({
-        'name': 'Andika Sujanto (Demo)',
-        'email': 'andika.demo@example.com',
-        'homeLocation': const GeoPoint(-7.2815, 112.7525),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-
-      // 2. Seed Delivery Document
-      final doc = FirebaseFirestore.instance
-          .collection('deliveries')
-          .doc(_deliveryId);
-
-      final snap = await doc.get();
-
-      if (!snap.exists || snap.data()?['receiverId'] != uid) {
-        await doc.set({
-          'receiverId': uid,
-          'driverId': 'driver_123',
-          'status': 'on_delivery',
-          'delayMinutes': 0,
-          'targetLocation': const GeoPoint(-7.2815, 112.7525),
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-      }
-    } catch (e) {
-      debugPrint(
-        'Seed data skipped due to rules, which is fine if backend handles it: $e',
-      );
-    }
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    _deliverySub?.cancel();
+    _ordersSub?.cancel();
+    _nodesSub?.cancel();
+    _offersSub?.cancel();
+    _chatSub?.cancel();
+    super.dispose();
   }
 
   String get safeOtpCode => otpCode.isNotEmpty ? otpCode : '8421';
 
+  String get receiverFirstName {
+    final trimmed = receiverName.trim();
+    if (trimmed.isEmpty) return 'Customer';
+    return trimmed.split(RegExp(r'\s+')).first;
+  }
+
+  String get driverFirstName {
+    final trimmed = driverName.trim();
+    if (trimmed.isEmpty) return 'Driver';
+    return trimmed.split(RegExp(r'\s+')).first;
+  }
+
   String get formattedVoucher {
-    return 'Rp${voucherAmount.toString().replaceAllMapped(
-          RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-          (match) => '${match[1]}.',
-        )}';
+    return 'Rp${voucherAmount.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (match) => '${match[1]}.')}';
   }
 
   // Backward compatibility for old pages still referencing formattedCashback.
@@ -365,6 +578,55 @@ class DemoDeliveryStore extends ChangeNotifier {
 
   bool get voucherEligible {
     return offerAccepted && !homeDeliverySelected;
+  }
+
+  String get voucherCodeText {
+    return voucherCode ?? 'FLEXI${voucherAmount.toString()}';
+  }
+
+  String get receiverLocationText {
+    if (receiverAddress.trim().isNotEmpty) return receiverAddress;
+    return '${receiverLatitude.toStringAsFixed(4)}, ${receiverLongitude.toStringAsFixed(4)}';
+  }
+
+  String get activeDestinationName {
+    if (shouldRouteToNode) return nodeName;
+    return 'Receiver address';
+  }
+
+  String get activeDeliveryStatusLabel {
+    if (homeDeliverySelected) return 'Home Delivery';
+    if (status == DemoDeliveryStatus.completed) return 'Completed';
+    if (status == DemoDeliveryStatus.deliveredToNode) return 'Ready for Pickup';
+    if (shouldRouteToNode) return 'Rerouted';
+    if (canShowOffer || delayMinutes > 15) return 'Delayed';
+    return 'On Delivery';
+  }
+
+  String get activeDeliverySubtitle {
+    if (homeDeliverySelected) {
+      return 'Door-to-door delivery continues with $driverName.';
+    }
+    if (status == DemoDeliveryStatus.completed) {
+      return 'Package pickup completed at $nodeName.';
+    }
+    if (status == DemoDeliveryStatus.deliveredToNode) {
+      return 'Package is waiting at $nodeName.';
+    }
+    if (shouldRouteToNode) {
+      return 'Courier is heading to $nodeName.';
+    }
+    if (delayMinutes > 0) {
+      return 'Estimated arrival delayed by ~$delayMinutes mins.';
+    }
+    return 'Courier $driverName is moving to your address.';
+  }
+
+  String get estimatedArrivalText {
+    if (status == DemoDeliveryStatus.completed) return 'Done';
+    if (status == DemoDeliveryStatus.deliveredToNode) return 'Ready';
+    if (delayMinutes > 0) return '+$delayMinutes min';
+    return 'On time';
   }
 
   String get statusText {
@@ -438,10 +700,7 @@ class DemoDeliveryStore extends ChangeNotifier {
       await http.post(
         Uri.parse('$_apiUrl/simulate-traffic'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'deliveryId': _deliveryId,
-          'delayMinutes': 20,
-        }),
+        body: jsonEncode({'deliveryId': _deliveryId, 'delayMinutes': 20}),
       );
     } catch (e) {
       debugPrint('Error simulating traffic: $e');
@@ -457,7 +716,8 @@ class DemoDeliveryStore extends ChangeNotifier {
     _addLocalAiMessage(
       sender: 'Receiver',
       type: 'receiver',
-      message: 'Receiver chose to keep door-to-door delivery. No voucher will be issued.',
+      message:
+          'Receiver chose to keep door-to-door delivery. No voucher will be issued.',
     );
 
     try {
@@ -465,11 +725,11 @@ class DemoDeliveryStore extends ChangeNotifier {
           .collection('deliveries')
           .doc(_deliveryId)
           .update({
-        'status': 'on_delivery',
-        'homeDeliverySelected': true,
-        'voucherIssued': false,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+            'status': 'on_delivery',
+            'homeDeliverySelected': true,
+            'voucherIssued': false,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
     } catch (e) {
       debugPrint('Error keeping home delivery: $e');
       notifyListeners();
@@ -509,23 +769,21 @@ class DemoDeliveryStore extends ChangeNotifier {
     await markReceivedByMitra(source: 'driver_app');
   }
 
-  Future<void> markReceivedByMitra({
-    required String source,
-  }) async {
+  Future<void> markReceivedByMitra({required String source}) async {
     try {
       await FirebaseFirestore.instance
           .collection('deliveries')
           .doc(_deliveryId)
           .update({
-        'status': 'delivered_to_node',
-        'selectedNodeId': nodeId,
-        'selectedNodeName': nodeName,
-        'selectedNodeLat': nodeLatitude,
-        'selectedNodeLng': nodeLongitude,
-        'mitraReceivedAt': FieldValue.serverTimestamp(),
-        'mitraReceiveSource': source,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+            'status': 'delivered_to_node',
+            'selectedNodeId': nodeId,
+            'selectedNodeName': nodeName,
+            'selectedNodeLat': nodeLatitude,
+            'selectedNodeLng': nodeLongitude,
+            'mitraReceivedAt': FieldValue.serverTimestamp(),
+            'mitraReceiveSource': source,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
 
       _addLocalAiMessage(
         sender: 'Mitra',
@@ -551,19 +809,17 @@ class DemoDeliveryStore extends ChangeNotifier {
     }
   }
 
-  Future<void> markCompletedByReceiver({
-    required String source,
-  }) async {
+  Future<void> markCompletedByReceiver({required String source}) async {
     try {
       await FirebaseFirestore.instance
           .collection('deliveries')
           .doc(_deliveryId)
           .update({
-        'status': 'completed',
-        'receiverPickedUpAt': FieldValue.serverTimestamp(),
-        'receiverPickupSource': source,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+            'status': 'completed',
+            'receiverPickedUpAt': FieldValue.serverTimestamp(),
+            'receiverPickupSource': source,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
 
       _addLocalAiMessage(
         sender: 'Mitra',
@@ -609,9 +865,7 @@ class DemoDeliveryStore extends ChangeNotifier {
     }
 
     if (expectedType != null && expectedType != type) {
-      throw Exception(
-        'Wrong QR type. Expected $expectedType but got $type.',
-      );
+      throw Exception('Wrong QR type. Expected $expectedType but got $type.');
     }
 
     if (scannedDeliveryId != null && scannedDeliveryId != _deliveryId) {
@@ -689,19 +943,20 @@ class DemoDeliveryStore extends ChangeNotifier {
     }
 
     try {
-      final defaultNode = availableNodes.first;
+      final defaultNode =
+          (pickupNodes.isEmpty ? fallbackNodes : pickupNodes).first;
 
       await FirebaseFirestore.instance
           .collection('deliveries')
           .doc(_deliveryId)
           .set({
-        'receiverId': uid,
-        'driverId': 'driver_123',
-        'status': 'on_delivery',
-        'delayMinutes': 0,
-        'targetLocation': const GeoPoint(-7.2815, 112.7525),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+            'receiverId': uid,
+            'driverId': 'driver_123',
+            'status': 'on_delivery',
+            'delayMinutes': 0,
+            'targetLocation': const GeoPoint(-7.2815, 112.7525),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
 
       selectPickupNode(defaultNode);
     } catch (e) {
@@ -747,7 +1002,8 @@ class DemoDeliveryStore extends ChangeNotifier {
         const AiChatMessage(
           sender: 'Flexi AI',
           type: 'action',
-          message: 'Pickup offer sent to receiver. Waiting for receiver approval.',
+          message:
+              'Pickup offer sent to receiver. Waiting for receiver approval.',
         ),
       ]);
 
@@ -776,7 +1032,8 @@ class DemoDeliveryStore extends ChangeNotifier {
       AiChatMessage(
         sender: 'Flexi AI',
         type: 'action',
-        message: 'Driver route has been updated. Pickup voucher $formattedVoucher will be issued.',
+        message:
+            'Driver route has been updated. Pickup voucher $formattedVoucher will be issued.',
       ),
     ]);
 
@@ -784,7 +1041,8 @@ class DemoDeliveryStore extends ChangeNotifier {
   }
 
   void _localReset() {
-    final defaultNode = availableNodes.first;
+    final defaultNode =
+        (pickupNodes.isEmpty ? fallbackNodes : pickupNodes).first;
 
     status = DemoDeliveryStatus.onDelivery;
     trafficStatus = 'normal';
@@ -825,13 +1083,7 @@ class DemoDeliveryStore extends ChangeNotifier {
     required String message,
     bool shouldNotify = true,
   }) {
-    aiMessages.add(
-      AiChatMessage(
-        sender: sender,
-        type: type,
-        message: message,
-      ),
-    );
+    aiMessages.add(AiChatMessage(sender: sender, type: type, message: message));
 
     if (shouldNotify) {
       notifyListeners();
@@ -840,9 +1092,24 @@ class DemoDeliveryStore extends ChangeNotifier {
 
   Future<void> _fetchReceiverInfo(String uid) async {
     try {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
       if (doc.exists) {
-        receiverName = doc.data()?['name'] ?? receiverName;
+        final data = doc.data();
+        receiverName = data?['name'] ?? receiverName;
+        receiverEmail = data?['email'] ?? receiverEmail;
+        receiverAddress =
+            data?['homeAddress']?.toString() ??
+            data?['address']?.toString() ??
+            receiverAddress;
+        final homeLocation = data?['homeLocation'];
+        receiverLatitude = _readGeoLatitude(homeLocation) ?? receiverLatitude;
+        receiverLongitude =
+            _readGeoLongitude(homeLocation) ?? receiverLongitude;
+        _resolveReceiverAddress();
+        _rebuildPickupNodes();
         notifyListeners();
       }
     } catch (e) {
@@ -852,14 +1119,289 @@ class DemoDeliveryStore extends ChangeNotifier {
 
   Future<void> _fetchDriverInfo(String uid) async {
     try {
-      final doc = await FirebaseFirestore.instance.collection('drivers').doc(uid).get();
+      final doc = await FirebaseFirestore.instance
+          .collection('drivers')
+          .doc(uid)
+          .get();
       if (doc.exists) {
-        driverName = doc.data()?['name'] ?? driverName;
+        final data = doc.data();
+        driverName = data?['name'] ?? driverName;
+        final currentLocation = data?['currentLocation'];
+        driverLatitude = _readGeoLatitude(currentLocation) ?? driverLatitude;
+        driverLongitude = _readGeoLongitude(currentLocation) ?? driverLongitude;
         notifyListeners();
       }
     } catch (e) {
       debugPrint('Error fetching driver info: $e');
     }
+  }
+
+  Future<void> _resolveReceiverAddress() async {
+    final key = _geocodingApiKey;
+    final latLngKey =
+        '${receiverLatitude.toStringAsFixed(6)},${receiverLongitude.toStringAsFixed(6)}';
+
+    if (key.isEmpty || _lastGeocodedLatLng == latLngKey) return;
+    if (receiverAddress.trim().isNotEmpty &&
+        !RegExp(r'^-?\d+\.\d+').hasMatch(receiverAddress.trim())) {
+      _lastGeocodedLatLng = latLngKey;
+      return;
+    }
+
+    _lastGeocodedLatLng = latLngKey;
+
+    try {
+      final address = await GeocodingService(apiKey: key).reverseGeocode(
+        latitude: receiverLatitude,
+        longitude: receiverLongitude,
+      );
+      if (address == null || address.trim().isEmpty) return;
+
+      receiverAddress = address;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Reverse geocoding skipped: $e');
+    }
+  }
+
+  void _rebuildPickupNodes() {
+    if (_nodeDocs.isEmpty) {
+      pickupNodes = List<DemoPickupNode>.of(fallbackNodes);
+      return;
+    }
+
+    pickupNodes =
+        _nodeDocs.map((entry) {
+          final data = entry['data'] as Map<String, dynamic>;
+          final id = entry['id'] as String;
+          final location = data['location'];
+          final latitude =
+              _readGeoLatitude(location) ?? fallbackNodes.first.latitude;
+          final longitude =
+              _readGeoLongitude(location) ?? fallbackNodes.first.longitude;
+          final meters = _distanceMeters(
+            receiverLatitude,
+            receiverLongitude,
+            latitude,
+            longitude,
+          );
+          final capacity = _readInt(data['capacity']);
+          final available = data['available'] as bool? ?? capacity > 0;
+          final status = !available
+              ? 'Unavailable'
+              : capacity <= 1
+              ? 'Almost full'
+              : 'Available';
+          final voucher = id == nodeId
+              ? voucherAmount
+              : _defaultVoucherAmount(capacity);
+
+          return DemoPickupNode(
+            id: id,
+            name: data['name']?.toString() ?? id,
+            distance: _formatMeters(meters),
+            walkingTime: _walkingTime(meters),
+            status: status,
+            capacity: '$capacity slots',
+            voucherText: _formatRupiah(voucher),
+            voucherAmount: voucher,
+            latitude: latitude,
+            longitude: longitude,
+            recommended: id == nodeId || pickupNodes.isEmpty,
+          );
+        }).toList()..sort((a, b) {
+          final aMeters = _parseMeters(a.distance);
+          final bMeters = _parseMeters(b.distance);
+          return aMeters.compareTo(bMeters);
+        });
+  }
+
+  void _applySelectedNodeFromList({bool keepOfferVoucher = false}) {
+    final nodes = pickupNodes.isEmpty ? fallbackNodes : pickupNodes;
+    final matchedNode = nodes.where((node) => node.id == nodeId).toList();
+
+    if (matchedNode.isEmpty) return;
+
+    final node = matchedNode.first;
+    nodeName = node.name;
+    nodeDistance = node.distance;
+    walkingTime = node.walkingTime;
+    nodeStatus = node.status;
+    nodeCapacity = node.capacity;
+    nodeLatitude = node.latitude;
+    nodeLongitude = node.longitude;
+    if (!keepOfferVoucher) {
+      voucherAmount = node.voucherAmount;
+    }
+  }
+
+  static double? _readGeoLatitude(dynamic value) {
+    if (value is GeoPoint) return value.latitude;
+    if (value is Map) {
+      final raw = value['latitude'];
+      if (raw is num) return raw.toDouble();
+    }
+    return null;
+  }
+
+  static double? _readGeoLongitude(dynamic value) {
+    if (value is GeoPoint) return value.longitude;
+    if (value is Map) {
+      final raw = value['longitude'];
+      if (raw is num) return raw.toDouble();
+    }
+    return null;
+  }
+
+  static int _readInt(dynamic value, {int fallback = 0}) {
+    if (value is int) return value;
+    if (value is num) return value.round();
+    if (value is String) return int.tryParse(value) ?? fallback;
+    return fallback;
+  }
+
+  static DateTime? _readDateTime(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is Map) {
+      final seconds = value['seconds'] ?? value['_seconds'];
+      if (seconds is num) {
+        return DateTime.fromMillisecondsSinceEpoch(seconds.round() * 1000);
+      }
+      final iso = value['iso'];
+      if (iso is String) return DateTime.tryParse(iso);
+    }
+    return null;
+  }
+
+  static DemoDeliveryStatus _statusFromText(String value) {
+    switch (value) {
+      case 'traffic_detected':
+        return DemoDeliveryStatus.trafficDetected;
+      case 'offer_pending':
+        return DemoDeliveryStatus.offerPending;
+      case 'rerouted_to_node':
+        return DemoDeliveryStatus.reroutedToNode;
+      case 'delivered_to_node':
+        return DemoDeliveryStatus.deliveredToNode;
+      case 'completed':
+        return DemoDeliveryStatus.completed;
+      case 'on_delivery':
+      default:
+        return DemoDeliveryStatus.onDelivery;
+    }
+  }
+
+  static String _orderStatusLabel(DemoDeliveryStatus status, int delay) {
+    switch (status) {
+      case DemoDeliveryStatus.completed:
+        return 'Completed';
+      case DemoDeliveryStatus.deliveredToNode:
+        return 'Ready for Pickup';
+      case DemoDeliveryStatus.reroutedToNode:
+        return 'Rerouted';
+      case DemoDeliveryStatus.offerPending:
+        return 'Offer Pending';
+      case DemoDeliveryStatus.trafficDetected:
+        return 'Traffic Delay';
+      case DemoDeliveryStatus.onDelivery:
+        return delay > 15 ? 'Delayed' : 'Courier on the way';
+    }
+  }
+
+  static String _orderSubtitle(DemoDeliveryStatus status, int delay) {
+    switch (status) {
+      case DemoDeliveryStatus.completed:
+        return 'Package completed';
+      case DemoDeliveryStatus.deliveredToNode:
+        return 'Waiting for receiver pickup';
+      case DemoDeliveryStatus.reroutedToNode:
+        return 'Courier heading to partner node';
+      case DemoDeliveryStatus.offerPending:
+        return 'Flexi Pickup offer available';
+      case DemoDeliveryStatus.trafficDetected:
+        return 'AI detected heavy traffic';
+      case DemoDeliveryStatus.onDelivery:
+        return delay > 15
+            ? 'Delayed by traffic'
+            : 'Moving toward receiver address';
+    }
+  }
+
+  static int _voucherAmountFromOffer(
+    Map<String, dynamic> data, {
+    required int fallback,
+  }) {
+    final explicitAmount = _readInt(
+      data['voucherAmount'] ??
+          data['cashbackAmount'] ??
+          data['cashback_amount'],
+      fallback: -1,
+    );
+    if (explicitAmount > 0) return explicitAmount;
+
+    switch (data['voucherType']?.toString()) {
+      case 'discount_10':
+        return 10000;
+      case 'free_shipping':
+        return 7000;
+      case 'discount_5':
+        return 5000;
+      default:
+        return fallback > 0 ? fallback : 5000;
+    }
+  }
+
+  static int _defaultVoucherAmount(int capacity) {
+    if (capacity <= 1) return 6000;
+    if (capacity <= 3) return 5000;
+    return 4000;
+  }
+
+  static int _distanceMeters(
+    double startLat,
+    double startLng,
+    double endLat,
+    double endLng,
+  ) {
+    const earthRadiusMeters = 6371000;
+    final dLat = _degreesToRadians(endLat - startLat);
+    final dLng = _degreesToRadians(endLng - startLng);
+    final a =
+        math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_degreesToRadians(startLat)) *
+            math.cos(_degreesToRadians(endLat)) *
+            math.sin(dLng / 2) *
+            math.sin(dLng / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return (earthRadiusMeters * c).round();
+  }
+
+  static double _degreesToRadians(double value) => value * math.pi / 180;
+
+  static String _formatMeters(int meters) {
+    if (meters >= 1000) {
+      return '${(meters / 1000).toStringAsFixed(1)}km';
+    }
+    return '${meters}m';
+  }
+
+  static int _parseMeters(String value) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized.endsWith('km')) {
+      final km = double.tryParse(normalized.replaceAll('km', '')) ?? 0;
+      return (km * 1000).round();
+    }
+    return int.tryParse(normalized.replaceAll('m', '')) ?? 0;
+  }
+
+  static String _walkingTime(int meters) {
+    final minutes = math.max(1, (meters / 80).ceil());
+    return '$minutes min';
+  }
+
+  static String _formatRupiah(int amount) {
+    return 'Rp${amount.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (match) => '${match[1]}.')}';
   }
 }
 

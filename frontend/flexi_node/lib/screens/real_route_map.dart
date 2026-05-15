@@ -25,22 +25,19 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
 
   // Run with:
   // flutter run --dart-define=GOOGLE_ROUTES_API_KEY=YOUR_KEY
-  static const String routesApiKey =
-      String.fromEnvironment('GOOGLE_ROUTES_API_KEY');
+  static const String routesApiKey = String.fromEnvironment(
+    'GOOGLE_ROUTES_API_KEY',
+  );
 
   final RoutesApiService routesApi = RoutesApiService(apiKey: routesApiKey);
 
-  // Demo coordinates
-  static const LatLng demoDriverLocation = LatLng(-7.2756, 112.7420);
-  static const LatLng receiverLocation = LatLng(-7.2818, 112.7580);
-  static const LatLng nodeLocation = LatLng(-7.2812, 112.7521);
+  // Fallback coordinates used before Firestore snapshots arrive.
+  static const LatLng fallbackDriverLocation = LatLng(-7.2756, 112.7420);
+  static const LatLng fallbackReceiverLocation = LatLng(-7.2818, 112.7580);
 
-  LatLng driverLocation = demoDriverLocation;
+  LatLng driverLocation = fallbackDriverLocation;
 
-  List<LatLng> routePoints = [
-    demoDriverLocation,
-    receiverLocation,
-  ];
+  List<LatLng> routePoints = [fallbackDriverLocation, fallbackReceiverLocation];
 
   int distanceMeters = 0;
   String durationText = '-';
@@ -53,6 +50,27 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
   String? routeError;
 
   bool get isDriverMode => widget.mode == 'driver';
+
+  LatLng get demoDriverLocation {
+    return LatLng(
+      demoDeliveryStore.driverLatitude,
+      demoDeliveryStore.driverLongitude,
+    );
+  }
+
+  LatLng get receiverLocation {
+    return LatLng(
+      demoDeliveryStore.receiverLatitude,
+      demoDeliveryStore.receiverLongitude,
+    );
+  }
+
+  LatLng get nodeLocation {
+    return LatLng(
+      demoDeliveryStore.nodeLatitude,
+      demoDeliveryStore.nodeLongitude,
+    );
+  }
 
   LatLng get destination {
     return demoDeliveryStore.shouldRouteToNode
@@ -83,6 +101,7 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
     super.initState();
 
     usePhoneGps = widget.usePhoneGpsByDefault;
+    driverLocation = demoDriverLocation;
 
     demoDeliveryStore.addListener(_onDemoStateChanged);
 
@@ -104,6 +123,9 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
 
   void _onDemoStateChanged() {
     if (!mounted) return;
+    if (!usePhoneGps) {
+      driverLocation = demoDriverLocation;
+    }
     loadRoute();
   }
 
@@ -191,10 +213,7 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
     } catch (e) {
       setState(() {
         routeError = e.toString().replaceFirst('Exception: ', '');
-        routePoints = [
-          driverLocation,
-          destination,
-        ];
+        routePoints = [driverLocation, destination];
       });
     } finally {
       if (mounted) {
@@ -228,10 +247,7 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
 
     await controller.animateCamera(
       CameraUpdate.newLatLngBounds(
-        LatLngBounds(
-          southwest: southwest,
-          northeast: northeast,
-        ),
+        LatLngBounds(southwest: southwest, northeast: northeast),
         70,
       ),
     );
@@ -244,7 +260,9 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
         position: driverLocation,
         icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
         infoWindow: InfoWindow(
-          title: isDriverMode ? 'You / Driver' : 'Driver: Rizky Fahmi',
+          title: isDriverMode
+              ? 'You / Driver'
+              : 'Driver: ${demoDeliveryStore.driverName}',
           snippet: usePhoneGps ? 'Live GPS location' : 'Demo driver location',
         ),
       ),
@@ -252,8 +270,8 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
         markerId: const MarkerId('receiver'),
         position: receiverLocation,
         icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
-        infoWindow: const InfoWindow(
-          title: 'Receiver: Andika Sujanto',
+        infoWindow: InfoWindow(
+          title: 'Receiver: ${demoDeliveryStore.receiverName}',
           snippet: 'Original home delivery address',
         ),
       ),
@@ -261,8 +279,8 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
         markerId: const MarkerId('pickup-node'),
         position: nodeLocation,
         icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-        infoWindow: const InfoWindow(
-          title: 'Indomaret Ahmad Yani',
+        infoWindow: InfoWindow(
+          title: demoDeliveryStore.nodeName,
           snippet: 'Flexi Pickup Node',
         ),
       ),
@@ -285,16 +303,10 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
       if (demoDeliveryStore.shouldRouteToNode)
         Polyline(
           polylineId: const PolylineId('receiver-walk-to-node'),
-          points: const [
-            receiverLocation,
-            nodeLocation,
-          ],
+          points: [receiverLocation, nodeLocation],
           width: 4,
           color: FlexiColors.blue,
-          patterns: [
-            PatternItem.dash(16),
-            PatternItem.gap(8),
-          ],
+          patterns: [PatternItem.dash(16), PatternItem.gap(8)],
         ),
     };
   }
@@ -313,10 +325,7 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
             actions: [
               IconButton(
                 onPressed: loadRoute,
-                icon: const Icon(
-                  Icons.refresh,
-                  color: FlexiColors.primary,
-                ),
+                icon: const Icon(Icons.refresh, color: FlexiColors.primary),
               ),
             ],
           ),
@@ -329,7 +338,7 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
                     children: [
                       GoogleMap(
                         initialCameraPosition: const CameraPosition(
-                          target: demoDriverLocation,
+                          target: fallbackDriverLocation,
                           zoom: 14,
                         ),
                         markers: markers,
@@ -491,14 +500,8 @@ class _MapInfoCard extends StatelessWidget {
                     ? FlexiColors.lightGreen
                     : FlexiColors.orangeSoft,
               ),
-              StatusPill(
-                icon: Icons.straighten,
-                label: distanceText,
-              ),
-              StatusPill(
-                icon: Icons.timer_outlined,
-                label: durationText,
-              ),
+              StatusPill(icon: Icons.straighten, label: distanceText),
+              StatusPill(icon: Icons.timer_outlined, label: durationText),
               StatusPill(
                 icon: Icons.gps_fixed,
                 label: usePhoneGps ? 'Live GPS' : 'Demo GPS',
@@ -538,8 +541,8 @@ class _MapInfoCard extends StatelessWidget {
               onPressed: loadingGps
                   ? null
                   : usePhoneGps
-                      ? onUseDemoGps
-                      : onUsePhoneGps,
+                  ? onUseDemoGps
+                  : onUsePhoneGps,
               icon: loadingGps
                   ? const SizedBox(
                       width: 14,
@@ -550,9 +553,7 @@ class _MapInfoCard extends StatelessWidget {
                       usePhoneGps ? Icons.gps_off : Icons.gps_fixed,
                       size: 16,
                     ),
-              label: Text(
-                usePhoneGps ? 'Use Demo GPS' : 'Use Phone GPS',
-              ),
+              label: Text(usePhoneGps ? 'Use Demo GPS' : 'Use Phone GPS'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: FlexiColors.primary,
                 side: const BorderSide(color: FlexiColors.border),
@@ -676,9 +677,7 @@ class _BottomMapActions extends StatelessWidget {
 }
 
 class _BottomContainer extends StatelessWidget {
-  const _BottomContainer({
-    required this.child,
-  });
+  const _BottomContainer({required this.child});
 
   final Widget child;
 
@@ -688,9 +687,7 @@ class _BottomContainer extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(
-          top: BorderSide(color: FlexiColors.border),
-        ),
+        border: Border(top: BorderSide(color: FlexiColors.border)),
       ),
       child: child,
     );
