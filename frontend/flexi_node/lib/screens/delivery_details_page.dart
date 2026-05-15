@@ -13,6 +13,7 @@ class DeliveryDetailsPage extends StatelessWidget {
       animation: demoDeliveryStore,
       builder: (context, _) {
         final store = demoDeliveryStore;
+        final canScanMitra = store.canScanMitraHandover;
 
         return Scaffold(
           backgroundColor: FlexiColors.bg,
@@ -181,10 +182,20 @@ class DeliveryDetailsPage extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: FlexiOutlineButton(
-                        label: 'Driver QR',
-                        icon: Icons.qr_code_2,
-                        onPressed: () =>
-                            Navigator.pushNamed(context, '/driver-qr'),
+                        label: canScanMitra ? 'Scan Mitra QR' : 'Driver QR',
+                        icon: canScanMitra
+                            ? Icons.qr_code_scanner
+                            : Icons.qr_code_2,
+                        onPressed: () => canScanMitra
+                            ? Navigator.pushNamed(
+                                context,
+                                '/qr-scanner',
+                                arguments: {
+                                  'expectedType': 'mitra_node',
+                                  'title': 'Scan Mitra QR',
+                                },
+                              )
+                            : Navigator.pushNamed(context, '/driver-qr'),
                       ),
                     ),
                   ],

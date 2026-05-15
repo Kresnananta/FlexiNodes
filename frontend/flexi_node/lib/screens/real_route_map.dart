@@ -608,12 +608,19 @@ class _BottomMapActions extends StatelessWidget {
         );
       }
 
-      if (store.statusText == 'rerouted_to_node') {
+      if (store.canScanMitraHandover) {
         return _BottomContainer(
           child: FlexiPrimaryButton(
-            label: 'Show Driver QR',
-            icon: Icons.qr_code_2,
-            onPressed: () => Navigator.pushNamed(context, '/driver-qr'),
+            label: 'Scan Mitra QR',
+            icon: Icons.qr_code_scanner,
+            onPressed: () => Navigator.pushNamed(
+              context,
+              '/qr-scanner',
+              arguments: {
+                'expectedType': 'mitra_node',
+                'title': 'Scan Mitra QR',
+              },
+            ),
           ),
         );
       }
@@ -640,7 +647,7 @@ class _BottomMapActions extends StatelessWidget {
 
       return _BottomContainer(
         child: FlexiPrimaryButton(
-          label: 'Show Driver QR',
+          label: 'Open Driver QR',
           icon: Icons.qr_code_2,
           onPressed: () => Navigator.pushNamed(context, '/driver-qr'),
         ),

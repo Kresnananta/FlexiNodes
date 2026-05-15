@@ -74,6 +74,8 @@ class DemoOrderSummary {
     required this.statusText,
     required this.delayMinutes,
     required this.isActive,
+    this.receiverName = 'Customer',
+    this.selectedNodeId,
   });
 
   final String id;
@@ -82,6 +84,8 @@ class DemoOrderSummary {
   final String statusText;
   final int delayMinutes;
   final bool isActive;
+  final String receiverName;
+  final String? selectedNodeId;
 }
 
 class DemoDeliveryStore extends ChangeNotifier {
@@ -397,6 +401,11 @@ class DemoDeliveryStore extends ChangeNotifier {
                     statusText: _orderStatusLabel(mappedStatus, delay),
                     delayMinutes: delay,
                     isActive: doc.id == _deliveryId,
+                    receiverName:
+                        data['receiverName']?.toString() ??
+                        data['customerName']?.toString() ??
+                        (doc.id == _deliveryId ? receiverName : 'Customer'),
+                    selectedNodeId: data['selectedNodeId']?.toString(),
                   );
                 }).toList()..sort((a, b) {
                   if (a.isActive && !b.isActive) return -1;
@@ -597,7 +606,7 @@ class DemoDeliveryStore extends ChangeNotifier {
   String get activeDeliveryStatusLabel {
     if (homeDeliverySelected) return 'Home Delivery';
     if (status == DemoDeliveryStatus.completed) return 'Completed';
-    if (status == DemoDeliveryStatus.deliveredToNode) return 'Ready for Pickup';
+    if (status == DemoDeliveryStatus.deliveredToNode) return 'Tiba di Mitra';
     if (shouldRouteToNode) return 'Rerouted';
     if (canShowOffer || delayMinutes > 15) return 'Delayed';
     return 'On Delivery';
@@ -611,7 +620,7 @@ class DemoDeliveryStore extends ChangeNotifier {
       return 'Package pickup completed at $nodeName.';
     }
     if (status == DemoDeliveryStatus.deliveredToNode) {
-      return 'Package is waiting at $nodeName.';
+      return 'Paket tiba di $nodeName dan menunggu diambil.';
     }
     if (shouldRouteToNode) {
       return 'Courier is heading to $nodeName.';
@@ -656,6 +665,12 @@ class DemoDeliveryStore extends ChangeNotifier {
     return status == DemoDeliveryStatus.offerPending &&
         !offerAccepted &&
         !homeDeliverySelected;
+  }
+
+  bool get canScanMitraHandover {
+    return !homeDeliverySelected &&
+        status != DemoDeliveryStatus.deliveredToNode &&
+        status != DemoDeliveryStatus.completed;
   }
 
   String get driverQrPayload {
@@ -859,6 +874,7 @@ class DemoDeliveryStore extends ChangeNotifier {
 
     final type = decoded['type']?.toString();
     final scannedDeliveryId = decoded['deliveryId']?.toString();
+    final scannedOrderId = decoded['orderId']?.toString();
 
     if (type == null) {
       throw Exception('QR type is missing.');
@@ -870,6 +886,12 @@ class DemoDeliveryStore extends ChangeNotifier {
 
     if (scannedDeliveryId != null && scannedDeliveryId != _deliveryId) {
       throw Exception('This QR belongs to a different package.');
+    }
+
+    if (scannedOrderId != null && scannedOrderId != orderId) {
+      throw Exception(
+        'This QR belongs to package $scannedOrderId, not $orderId.',
+      );
     }
 
     if (type == 'driver_dropoff') {
@@ -902,7 +924,27 @@ class DemoDeliveryStore extends ChangeNotifier {
     }
 
     if (type == 'mitra_node') {
-      return 'Mitra node verified: $nodeName.';
+      final scannedNodeId = decoded['nodeId']?.toString();
+
+      if (scannedNodeId != null && scannedNodeId != nodeId) {
+        throw Exception('This QR belongs to a different mitra node.');
+      }
+
+      if (status == DemoDeliveryStatus.completed) {
+        return 'Package $orderId has already been completed.';
+      }
+
+      if (status == DemoDeliveryStatus.deliveredToNode) {
+        return 'Package $orderId is already stored at $nodeName.';
+      }
+
+      if (homeDeliverySelected) {
+        throw Exception('Receiver chose home delivery for this package.');
+      }
+
+      await markReceivedByMitra(source: 'driver_mitra_qr_scan');
+
+      return 'Package $orderId received by $nodeName. Status changed to delivered_to_node.';
     }
 
     throw Exception('Unsupported QR type: $type.');
@@ -1297,7 +1339,7 @@ class DemoDeliveryStore extends ChangeNotifier {
       case DemoDeliveryStatus.completed:
         return 'Completed';
       case DemoDeliveryStatus.deliveredToNode:
-        return 'Ready for Pickup';
+        return 'Tiba di Mitra';
       case DemoDeliveryStatus.reroutedToNode:
         return 'Rerouted';
       case DemoDeliveryStatus.offerPending:
@@ -1314,7 +1356,7 @@ class DemoDeliveryStore extends ChangeNotifier {
       case DemoDeliveryStatus.completed:
         return 'Package completed';
       case DemoDeliveryStatus.deliveredToNode:
-        return 'Waiting for receiver pickup';
+        return 'Paket tiba di mitra';
       case DemoDeliveryStatus.reroutedToNode:
         return 'Courier heading to partner node';
       case DemoDeliveryStatus.offerPending:
