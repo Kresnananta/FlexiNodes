@@ -12,33 +12,49 @@ async function seed() {
   console.log('🚀 Memulai Seeding ke Cloud Firestore...');
 
   try {
-    // 1. Seed Deliveries
+    // 1. Seed Users
+    await db.collection('users').doc('demo_user_123').set({
+      name: 'Andika Sujanto',
+      email: 'andika@example.com',
+      homeLocation: new admin.firestore.GeoPoint(-7.2815, 112.7525),
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // 2. Seed Drivers
+    await db.collection('drivers').doc('driver_123').set({
+      name: 'Rizky Fahmi',
+      vehicle: 'Motor Honda Vario (L 1234 ABC)',
+      phone: '0812-3456-7890',
+      currentLocation: new admin.firestore.GeoPoint(-7.2800, 112.7500)
+    });
+
+    // 3. Seed Deliveries
     const deliveryRef = db.collection('deliveries').doc('paket_001');
     await deliveryRef.set({
       orderId: 'SD-1001',
       status: 'on_delivery',
-      receiverName: 'Andika Sujanto',
       receiverId: 'demo_user_123',
-      targetLocation: new admin.firestore.GeoPoint(-7.2815, 112.7525), // Surabaya Area
+      driverId: 'driver_123',
+      targetLocation: new admin.firestore.GeoPoint(-7.2815, 112.7525),
       delayMinutes: 0,
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     });
-    console.log('✅ Data Delivery berhasil dibuat.');
+    console.log('✅ Data Users, Drivers, dan Deliveries berhasil dibuat.');
 
-    // 2. Seed Nodes (Toko Mitra)
+    // 4. Seed Nodes (Toko Mitra)
     const nodes = [
       {
         id: 'node_001',
         name: 'Indomaret Ahmad Yani',
         location: new admin.firestore.GeoPoint(-7.2812, 112.7521),
-        capacity: '10',
+        capacity: 10,
         available: true
       },
       {
         id: 'node_002',
         name: 'Alfamart Gayungan',
         location: new admin.firestore.GeoPoint(-7.2900, 112.7500),
-        capacity: '5',
+        capacity: 5,
         available: true
       }
     ];
