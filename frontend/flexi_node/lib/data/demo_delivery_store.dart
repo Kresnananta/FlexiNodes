@@ -606,7 +606,7 @@ class DemoDeliveryStore extends ChangeNotifier {
   String get activeDeliveryStatusLabel {
     if (homeDeliverySelected) return 'Home Delivery';
     if (status == DemoDeliveryStatus.completed) return 'Completed';
-    if (status == DemoDeliveryStatus.deliveredToNode) return 'Ready for Pickup';
+    if (status == DemoDeliveryStatus.deliveredToNode) return 'Tiba di Mitra';
     if (shouldRouteToNode) return 'Rerouted';
     if (canShowOffer || delayMinutes > 15) return 'Delayed';
     return 'On Delivery';
@@ -620,7 +620,7 @@ class DemoDeliveryStore extends ChangeNotifier {
       return 'Package pickup completed at $nodeName.';
     }
     if (status == DemoDeliveryStatus.deliveredToNode) {
-      return 'Package is waiting at $nodeName.';
+      return 'Paket tiba di $nodeName dan menunggu diambil.';
     }
     if (shouldRouteToNode) {
       return 'Courier is heading to $nodeName.';
@@ -918,7 +918,27 @@ class DemoDeliveryStore extends ChangeNotifier {
     }
 
     if (type == 'mitra_node') {
-      return 'Mitra node verified: $nodeName.';
+      final scannedNodeId = decoded['nodeId']?.toString();
+
+      if (scannedNodeId != null && scannedNodeId != nodeId) {
+        throw Exception('This QR belongs to a different mitra node.');
+      }
+
+      if (!shouldRouteToNode && status != DemoDeliveryStatus.offerPending) {
+        throw Exception('Package has not been rerouted to this node yet.');
+      }
+
+      if (status == DemoDeliveryStatus.completed) {
+        return 'Package $orderId has already been completed.';
+      }
+
+      if (status == DemoDeliveryStatus.deliveredToNode) {
+        return 'Package $orderId is already stored at $nodeName.';
+      }
+
+      await markReceivedByMitra(source: 'driver_mitra_qr_scan');
+
+      return 'Package $orderId received by $nodeName. Status changed to delivered_to_node.';
     }
 
     throw Exception('Unsupported QR type: $type.');
@@ -1313,7 +1333,7 @@ class DemoDeliveryStore extends ChangeNotifier {
       case DemoDeliveryStatus.completed:
         return 'Completed';
       case DemoDeliveryStatus.deliveredToNode:
-        return 'Ready for Pickup';
+        return 'Tiba di Mitra';
       case DemoDeliveryStatus.reroutedToNode:
         return 'Rerouted';
       case DemoDeliveryStatus.offerPending:
@@ -1330,7 +1350,7 @@ class DemoDeliveryStore extends ChangeNotifier {
       case DemoDeliveryStatus.completed:
         return 'Package completed';
       case DemoDeliveryStatus.deliveredToNode:
-        return 'Waiting for receiver pickup';
+        return 'Paket tiba di mitra';
       case DemoDeliveryStatus.reroutedToNode:
         return 'Courier heading to partner node';
       case DemoDeliveryStatus.offerPending:

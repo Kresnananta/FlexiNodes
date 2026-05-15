@@ -28,6 +28,7 @@ class _QrScannerPageState extends State<QrScannerPage> {
 
   bool get isDriverScan => widget.expectedType == 'driver_dropoff';
   bool get isReceiverScan => widget.expectedType == 'receiver_pickup';
+  bool get isMitraScan => widget.expectedType == 'mitra_node';
   bool get isUnifiedScan => widget.expectedType == null;
 
   @override
@@ -73,7 +74,7 @@ class _QrScannerPageState extends State<QrScannerPage> {
                   Navigator.pop(context);
                   Navigator.pop(context);
                 },
-                child: const Text('Back to Mitra'),
+                child: const Text('Back'),
               ),
             ],
           );
@@ -134,19 +135,22 @@ class _QrScannerPageState extends State<QrScannerPage> {
         child: Column(
           children: [
             Expanded(
-              child: PageView(
-                controller: pageController,
-                onPageChanged: _handlePageChanged,
-                children: [
-                  _buildScannerPage(),
-                  _ShowMitraQrPage(store: demoDeliveryStore),
-                ],
-              ),
+              child: isUnifiedScan
+                  ? PageView(
+                      controller: pageController,
+                      onPageChanged: _handlePageChanged,
+                      children: [
+                        _buildScannerPage(),
+                        _ShowMitraQrPage(store: demoDeliveryStore),
+                      ],
+                    )
+                  : _buildScannerPage(),
             ),
             _QrModeFooter(
               currentPage: currentPage,
               isUnifiedScan: isUnifiedScan,
               isDriverScan: isDriverScan,
+              isMitraScan: isMitraScan,
               onScanTap: () => pageController.animateToPage(
                 0,
                 duration: const Duration(milliseconds: 240),
@@ -161,6 +165,8 @@ class _QrScannerPageState extends State<QrScannerPage> {
                   _handleDetected(demoDeliveryStore.driverQrPayload),
               onDemoReceiverTap: () =>
                   _handleDetected(demoDeliveryStore.receiverQrPayload),
+              onDemoMitraTap: () =>
+                  _handleDetected(demoDeliveryStore.mitraQrPayload),
             ),
           ],
         ),
@@ -175,6 +181,8 @@ class _QrScannerPageState extends State<QrScannerPage> {
         ? 'Scan Driver Package QR'
         : isReceiverScan
         ? 'Scan Customer Pickup QR'
+        : isMitraScan
+        ? 'Scan Mitra Node QR'
         : 'Scan Flexi QR';
 
     final instructionBody = isUnifiedScan
@@ -183,18 +191,22 @@ class _QrScannerPageState extends State<QrScannerPage> {
         ? 'Ask the driver to show the package QR. Scanning it will mark the package as stored at the mitra node.'
         : isReceiverScan
         ? 'Ask the customer to show their pickup QR. Scanning it will verify OTP and complete the pickup.'
+        : isMitraScan
+        ? 'Scan QR mitra untuk memindahkan paket ke node dan mengubah status menjadi tiba di mitra.'
         : 'Point the camera at a valid Flexi Nodes QR code.';
 
     final instructionIcon = isDriverScan
         ? Icons.local_shipping_outlined
         : isReceiverScan
         ? Icons.person_outline
+        : isMitraScan
+        ? Icons.storefront
         : Icons.qr_code_scanner;
 
-    final instructionColor = isDriverScan || isUnifiedScan
+    final instructionColor = isDriverScan || isUnifiedScan || isMitraScan
         ? FlexiColors.orange
         : FlexiColors.primary;
-    final instructionBackground = isDriverScan || isUnifiedScan
+    final instructionBackground = isDriverScan || isUnifiedScan || isMitraScan
         ? FlexiColors.orangeSoft
         : FlexiColors.lightGreen;
 
@@ -380,19 +392,23 @@ class _QrModeFooter extends StatelessWidget {
     required this.currentPage,
     required this.isUnifiedScan,
     required this.isDriverScan,
+    required this.isMitraScan,
     required this.onScanTap,
     required this.onShowTap,
     required this.onDemoDriverTap,
     required this.onDemoReceiverTap,
+    required this.onDemoMitraTap,
   });
 
   final int currentPage;
   final bool isUnifiedScan;
   final bool isDriverScan;
+  final bool isMitraScan;
   final VoidCallback onScanTap;
   final VoidCallback onShowTap;
   final VoidCallback onDemoDriverTap;
   final VoidCallback onDemoReceiverTap;
+  final VoidCallback onDemoMitraTap;
 
   @override
   Widget build(BuildContext context) {
@@ -402,29 +418,31 @@ class _QrModeFooter extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: _ModeButton(
-                  label: 'Scan',
-                  icon: Icons.qr_code_scanner,
-                  selected: currentPage == 0,
-                  onTap: onScanTap,
+          if (isUnifiedScan) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: _ModeButton(
+                    label: 'Scan',
+                    icon: Icons.qr_code_scanner,
+                    selected: currentPage == 0,
+                    onTap: onScanTap,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _ModeButton(
-                  label: 'Show QR',
-                  icon: Icons.qr_code_2,
-                  selected: currentPage == 1,
-                  onTap: onShowTap,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _ModeButton(
+                    label: 'Show QR',
+                    icon: Icons.qr_code_2,
+                    selected: currentPage == 1,
+                    onTap: onShowTap,
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
           if (currentPage == 0) ...[
-            const SizedBox(height: 10),
+            if (isUnifiedScan) const SizedBox(height: 10),
             if (isUnifiedScan)
               Row(
                 children: [
@@ -447,13 +465,21 @@ class _QrModeFooter extends StatelessWidget {
               )
             else
               FlexiOutlineButton(
-                label: isDriverScan
+                label: isMitraScan
+                    ? 'Use Demo Mitra QR'
+                    : isDriverScan
                     ? 'Use Demo Driver QR'
                     : 'Use Demo Customer QR',
-                icon: isDriverScan
+                icon: isMitraScan
+                    ? Icons.storefront
+                    : isDriverScan
                     ? Icons.local_shipping_outlined
                     : Icons.person_outline,
-                onPressed: isDriverScan ? onDemoDriverTap : onDemoReceiverTap,
+                onPressed: isMitraScan
+                    ? onDemoMitraTap
+                    : isDriverScan
+                    ? onDemoDriverTap
+                    : onDemoReceiverTap,
               ),
           ],
         ],

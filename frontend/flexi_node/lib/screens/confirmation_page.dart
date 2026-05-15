@@ -78,7 +78,10 @@ class ConfirmationPage extends StatelessWidget {
                             ? 'Ready now'
                             : store.estimatedArrivalText,
                       ),
-                      _InfoRow(label: 'Status', value: store.statusText),
+                      _InfoRow(
+                        label: 'Status',
+                        value: store.activeDeliveryStatusLabel,
+                      ),
                     ],
                   ),
                 ),

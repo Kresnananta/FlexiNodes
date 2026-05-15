@@ -473,12 +473,27 @@ class _ActiveRouteCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: FlexiOutlineButton(
-                        label: 'Details',
-                        icon: Icons.info_outline,
-                        onPressed: () =>
-                            Navigator.pushNamed(context, '/delivery-details'),
-                      ),
+                      child: store.statusText == 'rerouted_to_node'
+                          ? FlexiOutlineButton(
+                              label: 'Scan Mitra QR',
+                              icon: Icons.qr_code_scanner,
+                              onPressed: () => Navigator.pushNamed(
+                                context,
+                                '/qr-scanner',
+                                arguments: {
+                                  'expectedType': 'mitra_node',
+                                  'title': 'Scan Mitra QR',
+                                },
+                              ),
+                            )
+                          : FlexiOutlineButton(
+                              label: 'Details',
+                              icon: Icons.info_outline,
+                              onPressed: () => Navigator.pushNamed(
+                                context,
+                                '/delivery-details',
+                              ),
+                            ),
                     ),
                   ],
                 ),
