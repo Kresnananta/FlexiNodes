@@ -13,6 +13,7 @@ class DeliveryDetailsPage extends StatelessWidget {
       animation: demoDeliveryStore,
       builder: (context, _) {
         final store = demoDeliveryStore;
+        final canScanMitra = store.canScanMitraHandover;
 
         return Scaffold(
           backgroundColor: FlexiColors.bg,
@@ -181,13 +182,11 @@ class DeliveryDetailsPage extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: FlexiOutlineButton(
-                        label: store.statusText == 'rerouted_to_node'
-                            ? 'Scan Mitra QR'
-                            : 'Driver QR',
-                        icon: store.statusText == 'rerouted_to_node'
+                        label: canScanMitra ? 'Scan Mitra QR' : 'Driver QR',
+                        icon: canScanMitra
                             ? Icons.qr_code_scanner
                             : Icons.qr_code_2,
-                        onPressed: () => store.statusText == 'rerouted_to_node'
+                        onPressed: () => canScanMitra
                             ? Navigator.pushNamed(
                                 context,
                                 '/qr-scanner',

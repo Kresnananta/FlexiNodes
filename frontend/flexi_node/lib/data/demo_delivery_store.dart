@@ -667,6 +667,12 @@ class DemoDeliveryStore extends ChangeNotifier {
         !homeDeliverySelected;
   }
 
+  bool get canScanMitraHandover {
+    return !homeDeliverySelected &&
+        status != DemoDeliveryStatus.deliveredToNode &&
+        status != DemoDeliveryStatus.completed;
+  }
+
   String get driverQrPayload {
     return jsonEncode({
       'type': 'driver_dropoff',
@@ -924,16 +930,16 @@ class DemoDeliveryStore extends ChangeNotifier {
         throw Exception('This QR belongs to a different mitra node.');
       }
 
-      if (!shouldRouteToNode && status != DemoDeliveryStatus.offerPending) {
-        throw Exception('Package has not been rerouted to this node yet.');
-      }
-
       if (status == DemoDeliveryStatus.completed) {
         return 'Package $orderId has already been completed.';
       }
 
       if (status == DemoDeliveryStatus.deliveredToNode) {
         return 'Package $orderId is already stored at $nodeName.';
+      }
+
+      if (homeDeliverySelected) {
+        throw Exception('Receiver chose home delivery for this package.');
       }
 
       await markReceivedByMitra(source: 'driver_mitra_qr_scan');

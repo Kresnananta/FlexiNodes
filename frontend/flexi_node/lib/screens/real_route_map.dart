@@ -608,7 +608,7 @@ class _BottomMapActions extends StatelessWidget {
         );
       }
 
-      if (store.statusText == 'rerouted_to_node') {
+      if (store.canScanMitraHandover) {
         return _BottomContainer(
           child: FlexiPrimaryButton(
             label: 'Scan Mitra QR',

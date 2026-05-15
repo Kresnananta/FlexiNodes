@@ -473,7 +473,7 @@ class _ActiveRouteCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: store.statusText == 'rerouted_to_node'
+                      child: store.canScanMitraHandover
                           ? FlexiOutlineButton(
                               label: 'Scan Mitra QR',
                               icon: Icons.qr_code_scanner,
