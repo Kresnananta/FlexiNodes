@@ -35,9 +35,9 @@ class VouchersPage extends StatelessWidget {
                     bottom: -10,
                     child: Icon(Icons.confirmation_num, size: 96, color: Colors.white.withOpacity(0.14)),
                   ),
-                  Column(
+                  const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       StatusPill(
                         label: 'ACTIVE REWARD',
                         color: Colors.white,
@@ -45,7 +45,7 @@ class VouchersPage extends StatelessWidget {
                       ),
                       SizedBox(height: 18),
                       Text(
-                        'Rp5.000 Cashback',
+                        'Rp5.000 Pickup Voucher',
                         style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900),
                       ),
                       SizedBox(height: 6),
@@ -76,9 +76,9 @@ class VouchersPage extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             const _HistoryTile(
-              icon: Icons.payments_outlined,
-              title: 'Cashback received',
-              subtitle: 'Rp5.000 added from Flexi Pickup',
+              icon: Icons.confirmation_num_outlined,
+              title: 'Voucher received',
+              subtitle: 'Rp5.000 pickup voucher added from Flexi Pickup',
               time: 'Today',
             ),
             const _HistoryTile(

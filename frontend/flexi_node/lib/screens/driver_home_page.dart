@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'live_route_preview.dart';
 import '../data/demo_delivery_store.dart';
 import 'flexi_ui.dart';
 
@@ -17,7 +17,13 @@ class DriverHomePage extends StatelessWidget {
           backgroundColor: FlexiColors.bg,
           bottomNavigationBar: const CompactBottomNav(
             currentIndex: 0,
-            routes: ['/driver-home', '/delivery-details', '/rerouted-navigation', '/vouchers', '/profile'],
+            routes: [
+              '/driver-home',
+              '/delivery-details',
+              '/rerouted-navigation',
+              '/vouchers',
+              '/profile',
+            ],
           ),
           body: SafeArea(
             child: CustomScrollView(
@@ -35,7 +41,11 @@ class DriverHomePage extends StatelessWidget {
                       const CircleAvatar(
                         radius: 21,
                         backgroundColor: FlexiColors.primary,
-                        child: Icon(Icons.person, color: Colors.white, size: 22),
+                        child: Icon(
+                          Icons.person,
+                          color: Colors.white,
+                          size: 22,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       const Expanded(
@@ -51,8 +61,12 @@ class DriverHomePage extends StatelessWidget {
                         ),
                       ),
                       IconButton(
-                        onPressed: () => Navigator.pushNamed(context, '/notifications'),
-                        icon: const Icon(Icons.notifications_none, color: FlexiColors.green),
+                        onPressed: () =>
+                            Navigator.pushNamed(context, '/notifications'),
+                        icon: const Icon(
+                          Icons.notifications_none,
+                          color: FlexiColors.green,
+                        ),
                       ),
                     ],
                   ),
@@ -117,12 +131,16 @@ class _DemoControl extends StatelessWidget {
     }
 
     return FlexiCard(
-      color: store.shouldRouteToNode ? FlexiColors.lightGreen : FlexiColors.orangeSoft,
+      color: store.shouldRouteToNode
+          ? FlexiColors.lightGreen
+          : FlexiColors.orangeSoft,
       child: Row(
         children: [
           Icon(
             store.shouldRouteToNode ? Icons.alt_route : Icons.warning_amber,
-            color: store.shouldRouteToNode ? FlexiColors.primary : FlexiColors.orange,
+            color: store.shouldRouteToNode
+                ? FlexiColors.primary
+                : FlexiColors.orange,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -131,7 +149,9 @@ class _DemoControl extends StatelessWidget {
                   ? 'Receiver accepted. Route now goes to ${store.nodeName}.'
                   : 'Traffic detected. Waiting for receiver approval.',
               style: TextStyle(
-                color: store.shouldRouteToNode ? FlexiColors.primary : FlexiColors.orange,
+                color: store.shouldRouteToNode
+                    ? FlexiColors.primary
+                    : FlexiColors.orange,
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
               ),
@@ -270,7 +290,11 @@ class _StatCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              CircleAvatar(radius: 18, backgroundColor: iconBg, child: Icon(icon, color: iconColor, size: 19)),
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: iconBg,
+                child: Icon(icon, color: iconColor, size: 19),
+              ),
               const Spacer(),
               StatusPill(label: badge, color: iconColor, background: iconBg),
             ],
@@ -318,7 +342,9 @@ class _StatCard extends StatelessWidget {
                 value: progress,
                 minHeight: 6,
                 backgroundColor: FlexiColors.border,
-                valueColor: const AlwaysStoppedAnimation<Color>(FlexiColors.primary),
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  FlexiColors.primary,
+                ),
               ),
             ),
           ],
@@ -343,8 +369,27 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: Text(title, style: const TextStyle(color: FlexiColors.text, fontSize: 20, fontWeight: FontWeight.w900))),
-        TextButton(onPressed: onTap, child: Text(action, style: const TextStyle(color: FlexiColors.primary, fontSize: 13, fontWeight: FontWeight.w900))),
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              color: FlexiColors.text,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        TextButton(
+          onPressed: onTap,
+          child: Text(
+            action,
+            style: const TextStyle(
+              color: FlexiColors.primary,
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -362,11 +407,10 @@ class _ActiveRouteCard extends StatelessWidget {
       onTap: () => Navigator.pushNamed(context, '/rerouted-navigation'),
       child: Column(
         children: [
-          MiniMap(
+          const LiveRoutePreview(
             height: 150,
-            showNode: true,
-            showCustomer: !store.shouldRouteToNode,
-            routeToNode: store.shouldRouteToNode,
+            mode: 'driver',
+            showOpenButton: false,
           ),
           Padding(
             padding: const EdgeInsets.all(14),
@@ -398,7 +442,10 @@ class _ActiveRouteCard extends StatelessWidget {
                               ),
                               const TextSpan(
                                 text: 'mins',
-                                style: TextStyle(color: FlexiColors.muted, fontSize: 11),
+                                style: TextStyle(
+                                  color: FlexiColors.muted,
+                                  fontSize: 11,
+                                ),
                               ),
                             ],
                           ),
@@ -415,7 +462,14 @@ class _ActiveRouteCard extends StatelessWidget {
                       child: FlexiPrimaryButton(
                         label: 'Start Route',
                         icon: Icons.navigation,
-                        onPressed: () => Navigator.pushNamed(context, '/rerouted-navigation'),
+                        onPressed: () => Navigator.pushNamed(
+                          context,
+                          '/real-map',
+                          arguments: {
+                            'mode': 'driver',
+                            'usePhoneGps': true,
+                          }
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -423,7 +477,8 @@ class _ActiveRouteCard extends StatelessWidget {
                       child: FlexiOutlineButton(
                         label: 'Details',
                         icon: Icons.info_outline,
-                        onPressed: () => Navigator.pushNamed(context, '/delivery-details'),
+                        onPressed: () =>
+                            Navigator.pushNamed(context, '/delivery-details'),
                       ),
                     ),
                   ],
@@ -447,7 +502,10 @@ class _RouteText extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        StatusPill(label: 'Package ${store.orderId}', icon: Icons.inventory_2_outlined),
+        StatusPill(
+          label: 'Package ${store.orderId}',
+          icon: Icons.inventory_2_outlined,
+        ),
         const SizedBox(height: 10),
         Text(
           store.shouldRouteToNode ? store.nodeName : store.receiverName,
@@ -461,10 +519,16 @@ class _RouteText extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          store.shouldRouteToNode ? 'New destination after receiver accepted.' : 'Jl. Sudirman Kav 52-53, Senayan,...',
+          store.shouldRouteToNode
+              ? 'New destination after receiver accepted.'
+              : 'Jl. Sudirman Kav 52-53, Senayan,...',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: FlexiColors.muted, fontSize: 12, fontWeight: FontWeight.w600),
+          style: const TextStyle(
+            color: FlexiColors.muted,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ],
     );
@@ -477,9 +541,27 @@ class _QuickActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = [
-      _Action(Icons.archive_outlined, 'Deliveries', FlexiColors.blue, FlexiColors.blueSoft, '/delivery-details'),
-      _Action(Icons.explore_outlined, 'Navigation', FlexiColors.primary, FlexiColors.lightGreen, '/rerouted-navigation'),
-      _Action(Icons.auto_awesome, 'AI Chat', FlexiColors.orange, FlexiColors.orangeSoft, '/ai-chat'),
+      _Action(
+        Icons.archive_outlined,
+        'Deliveries',
+        FlexiColors.blue,
+        FlexiColors.blueSoft,
+        '/delivery-details',
+      ),
+      _Action(
+        Icons.explore_outlined,
+        'Navigation',
+        FlexiColors.primary,
+        FlexiColors.lightGreen,
+        '/rerouted-navigation',
+      ),
+      _Action(
+        Icons.auto_awesome,
+        'AI Chat',
+        FlexiColors.orange,
+        FlexiColors.orangeSoft,
+        '/ai-chat',
+      ),
     ];
 
     return GridView.builder(
@@ -508,9 +590,22 @@ class _QuickActions extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircleAvatar(radius: 21, backgroundColor: item.bg, child: Icon(item.icon, color: item.color, size: 21)),
+                  CircleAvatar(
+                    radius: 21,
+                    backgroundColor: item.bg,
+                    child: Icon(item.icon, color: item.color, size: 21),
+                  ),
                   const SizedBox(height: 8),
-                  Text(item.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: FlexiColors.text, fontSize: 11.5, fontWeight: FontWeight.w800)),
+                  Text(
+                    item.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: FlexiColors.text,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ],
               ),
             ),

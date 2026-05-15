@@ -74,9 +74,7 @@ class FlexiNodesApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF006E2F),
-        ),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF006E2F)),
       ),
       initialRoute: '/',
 
@@ -116,7 +114,8 @@ class FlexiNodesApp extends StatelessWidget {
 
           return MaterialPageRoute(
             builder: (context) => QrScannerPage(
-              expectedType: args?['expectedType'] as String?,
+              expectedType:
+                  args?['expectedType'] as String? ?? 'driver_dropoff',
               title: args?['title'] as String? ?? 'Scan QR',
             ),
           );
@@ -140,9 +139,7 @@ class FlexiNodesApp extends StatelessWidget {
       },
 
       onUnknownRoute: (settings) {
-        return MaterialPageRoute(
-          builder: (context) => const LandingPage(),
-        );
+        return MaterialPageRoute(builder: (context) => const LandingPage());
       },
     );
   }
