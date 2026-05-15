@@ -74,6 +74,8 @@ class DemoOrderSummary {
     required this.statusText,
     required this.delayMinutes,
     required this.isActive,
+    this.receiverName = 'Customer',
+    this.selectedNodeId,
   });
 
   final String id;
@@ -82,6 +84,8 @@ class DemoOrderSummary {
   final String statusText;
   final int delayMinutes;
   final bool isActive;
+  final String receiverName;
+  final String? selectedNodeId;
 }
 
 class DemoDeliveryStore extends ChangeNotifier {
@@ -397,6 +401,11 @@ class DemoDeliveryStore extends ChangeNotifier {
                     statusText: _orderStatusLabel(mappedStatus, delay),
                     delayMinutes: delay,
                     isActive: doc.id == _deliveryId,
+                    receiverName:
+                        data['receiverName']?.toString() ??
+                        data['customerName']?.toString() ??
+                        (doc.id == _deliveryId ? receiverName : 'Customer'),
+                    selectedNodeId: data['selectedNodeId']?.toString(),
                   );
                 }).toList()..sort((a, b) {
                   if (a.isActive && !b.isActive) return -1;
@@ -859,6 +868,7 @@ class DemoDeliveryStore extends ChangeNotifier {
 
     final type = decoded['type']?.toString();
     final scannedDeliveryId = decoded['deliveryId']?.toString();
+    final scannedOrderId = decoded['orderId']?.toString();
 
     if (type == null) {
       throw Exception('QR type is missing.');
@@ -870,6 +880,12 @@ class DemoDeliveryStore extends ChangeNotifier {
 
     if (scannedDeliveryId != null && scannedDeliveryId != _deliveryId) {
       throw Exception('This QR belongs to a different package.');
+    }
+
+    if (scannedOrderId != null && scannedOrderId != orderId) {
+      throw Exception(
+        'This QR belongs to package $scannedOrderId, not $orderId.',
+      );
     }
 
     if (type == 'driver_dropoff') {

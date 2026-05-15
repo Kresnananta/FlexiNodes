@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 
 import '../data/demo_delivery_store.dart';
 import 'flexi_ui.dart';
@@ -13,6 +12,20 @@ class PartnerDashboardPage extends StatelessWidget {
       animation: demoDeliveryStore,
       builder: (context, _) {
         final store = demoDeliveryStore;
+        final packages = _partnerPackages(store);
+        final storedCount = packages
+            .where(
+              (package) => package.status == DemoDeliveryStatus.deliveredToNode,
+            )
+            .length;
+        final deliveringCount = packages
+            .where(
+              (package) => package.status == DemoDeliveryStatus.reroutedToNode,
+            )
+            .length;
+        final activeCount = packages
+            .where((package) => package.status != DemoDeliveryStatus.completed)
+            .length;
 
         return Scaffold(
           backgroundColor: FlexiColors.bg,
@@ -49,7 +62,7 @@ class PartnerDashboardPage extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           const Text(
-                            'Mitra dashboard for secure QR handover.',
+                            'Dashboard penitipan paket mitra.',
                             style: TextStyle(
                               color: FlexiColors.muted,
                               fontSize: 13,
@@ -60,187 +73,35 @@ class PartnerDashboardPage extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                FlexiCard(
-                  color: FlexiColors.lightGreen,
-                  child: Column(
-                    children: [
-                      const StatusPill(
-                        icon: Icons.qr_code_2,
-                        label: 'MITRA NODE QR',
-                        color: FlexiColors.primary,
-                        background: Colors.white,
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: QrImageView(
-                          data: store.mitraQrPayload,
-                          version: QrVersions.auto,
-                          size: 160,
-                          backgroundColor: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      const Text(
-                        'This QR identifies the partner node for secure package handover.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: FlexiColors.muted,
-                          fontSize: 12.5,
-                          height: 1.35,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 14),
-                FlexiCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Current Package',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _InfoRow(label: 'Order ID', value: store.orderId),
-                      _InfoRow(label: 'Driver', value: store.driverName),
-                      _InfoRow(label: 'Receiver', value: store.receiverName),
-                      _InfoRow(label: 'OTP', value: store.safeOtpCode),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          StatusPill(
-                            icon: Icons.sync_alt,
-                            label: store.statusText,
-                            color: _statusColor(store.statusText),
-                            background: _statusBackground(store.statusText),
-                          ),
-                          StatusPill(
-                            icon: Icons.inventory_2_outlined,
-                            label: store.dropoffConfirmed
-                                ? 'Stored at node'
-                                : 'Waiting handover',
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: FlexiColors.orange,
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Row(
-                    children: [
-                      const CircleAvatar(
-                        radius: 28,
-                        backgroundColor: Colors.white,
-                        child: Icon(
-                          Icons.qr_code_scanner,
-                          color: FlexiColors.orange,
-                          size: 30,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Text.rich(
-                          TextSpan(
-                            children: [
-                              const TextSpan(
-                                text: 'Scan Package QR\n',
-                                style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              TextSpan(
-                                text: store.dropoffConfirmed
-                                    ? 'Scan receiver QR to release and complete the package.'
-                                    : 'Scan driver QR to receive package into this node.',
-                                style: const TextStyle(
-                                  fontSize: 12.5,
-                                  height: 1.35,
-                                ),
-                              ),
-                            ],
-                          ),
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FlexiPrimaryButton(
-                        label: 'Scan Driver QR',
-                        icon: Icons.local_shipping_outlined,
-                        backgroundColor: FlexiColors.orange,
-                        onPressed: () => Navigator.pushNamed(
-                          context,
-                          '/qr-scanner',
-                          arguments: {
-                            'expectedType': 'driver_dropoff',
-                            'title': 'Scan Driver QR',
-                          },
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: FlexiPrimaryButton(
-                        label: 'Scan Receiver QR',
-                        icon: Icons.person_outline,
-                        onPressed: () => Navigator.pushNamed(
-                          context,
-                          '/qr-scanner',
-                          arguments: {
-                            'expectedType': 'receiver_pickup',
-                            'title': 'Scan Receiver QR',
-                          },
-                        ),
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 20),
+                const Text(
+                  'Dashboard',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FlexiOutlineButton(
-                        label: 'Show Driver QR',
-                        icon: Icons.qr_code_2,
-                        onPressed: () =>
-                            Navigator.pushNamed(context, '/driver-qr'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: FlexiOutlineButton(
-                        label: 'Show Receiver QR',
-                        icon: Icons.qr_code_2,
-                        onPressed: () =>
-                            Navigator.pushNamed(context, '/receiver-qr'),
-                      ),
-                    ),
-                  ],
+                _DashboardStatsCard(
+                  activeCount: activeCount,
+                  storedCount: storedCount,
+                  deliveringCount: deliveringCount,
                 ),
+                const SizedBox(height: 20),
+                FlexiPrimaryButton(
+                  label: 'Scan / Show QR',
+                  icon: Icons.qr_code_scanner,
+                  backgroundColor: FlexiColors.orange,
+                  onPressed: () => Navigator.pushNamed(
+                    context,
+                    '/qr-scanner',
+                    arguments: {'title': 'Scan / Show QR'},
+                  ),
+                ),
+                const SizedBox(height: 22),
+                const Text(
+                  'Daftar Penitipan',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 10),
+                _PackageListCard(packages: packages, store: store),
                 const SizedBox(height: 18),
                 const Text(
                   'Handover Timeline',
@@ -256,16 +117,17 @@ class PartnerDashboardPage extends StatelessWidget {
                         active: store.offerAccepted || store.shouldRouteToNode,
                       ),
                       TimelineStep(
-                        title: 'Driver QR scanned by mitra',
-                        subtitle: 'Package stored at ${store.nodeName}',
+                        title: 'Package stored at mitra',
+                        subtitle:
+                            'Driver handover confirmed at ${store.nodeName}',
                         active:
                             store.dropoffConfirmed ||
                             store.statusText == 'delivered_to_node' ||
                             store.statusText == 'completed',
                       ),
                       TimelineStep(
-                        title: 'Receiver QR scanned by mitra',
-                        subtitle: 'OTP verified and package released',
+                        title: 'Customer QR verified',
+                        subtitle: 'Order ID and OTP matched before release',
                         active: store.statusText == 'completed',
                         last: true,
                       ),
@@ -280,54 +142,319 @@ class PartnerDashboardPage extends StatelessWidget {
     );
   }
 
-  static Color _statusColor(String status) {
-    if (status == 'completed') return FlexiColors.primary;
-    if (status == 'delivered_to_node') return FlexiColors.blue;
-    if (status == 'rerouted_to_node') return FlexiColors.primary;
-    return FlexiColors.orange;
-  }
+  static List<_PartnerPackage> _partnerPackages(DemoDeliveryStore store) {
+    final packages = store.orders
+        .where((order) {
+          final isPartnerStatus =
+              order.status == DemoDeliveryStatus.reroutedToNode ||
+              order.status == DemoDeliveryStatus.deliveredToNode ||
+              order.status == DemoDeliveryStatus.completed;
+          final belongsToNode =
+              order.selectedNodeId == null ||
+              order.selectedNodeId == store.nodeId ||
+              order.isActive;
 
-  static Color _statusBackground(String status) {
-    if (status == 'completed') return FlexiColors.lightGreen;
-    if (status == 'delivered_to_node') return FlexiColors.blueSoft;
-    if (status == 'rerouted_to_node') return FlexiColors.lightGreen;
-    return FlexiColors.orangeSoft;
+          return isPartnerStatus && belongsToNode;
+        })
+        .map(
+          (order) => _PartnerPackage(
+            orderId: order.id,
+            receiverName: order.receiverName,
+            status: order.status,
+          ),
+        )
+        .toList();
+
+    final hasActiveOrder = packages.any(
+      (package) => package.orderId == store.orderId,
+    );
+    if (!hasActiveOrder && store.shouldRouteToNode) {
+      packages.insert(
+        0,
+        _PartnerPackage(
+          orderId: store.orderId,
+          receiverName: store.receiverName,
+          status: store.status,
+        ),
+      );
+    }
+
+    return packages;
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.label, required this.value});
+class _DashboardStatsCard extends StatelessWidget {
+  const _DashboardStatsCard({
+    required this.activeCount,
+    required this.storedCount,
+    required this.deliveringCount,
+  });
 
-  final String label;
-  final String value;
+  final int activeCount;
+  final int storedCount;
+  final int deliveringCount;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 9),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.13),
+            blurRadius: 18,
+            offset: const Offset(0, 9),
+          ),
+        ],
+      ),
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(color: FlexiColors.muted, fontSize: 12.5),
+            child: _StatItem(
+              icon: Icons.inventory_2_outlined,
+              value: activeCount,
+              label: 'Paket di Toko',
             ),
           ),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: FlexiColors.text,
-                fontSize: 13,
-                fontWeight: FontWeight.w900,
-              ),
+          const _StatDivider(),
+          Expanded(
+            child: _StatItem(
+              icon: Icons.schedule,
+              value: storedCount,
+              label: 'Menunggu Diambil',
+            ),
+          ),
+          const _StatDivider(),
+          Expanded(
+            child: _StatItem(
+              icon: Icons.delivery_dining,
+              value: deliveringCount,
+              label: 'Sedang Diantar',
             ),
           ),
         ],
       ),
     );
   }
+}
+
+class _StatItem extends StatelessWidget {
+  const _StatItem({
+    required this.icon,
+    required this.value,
+    required this.label,
+  });
+
+  final IconData icon;
+  final int value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: FlexiColors.orange, size: 25),
+        const SizedBox(height: 6),
+        Text(
+          value.toString(),
+          style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: FlexiColors.muted, fontSize: 12.5),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatDivider extends StatelessWidget {
+  const _StatDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(width: 1.5, height: 64, color: const Color(0xFFD9D9D9));
+  }
+}
+
+class _PackageListCard extends StatelessWidget {
+  const _PackageListCard({required this.packages, required this.store});
+
+  final List<_PartnerPackage> packages;
+  final DemoDeliveryStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    if (packages.isEmpty) {
+      return FlexiCard(
+        child: Column(
+          children: [
+            const Icon(
+              Icons.inventory_2_outlined,
+              color: FlexiColors.muted,
+              size: 32,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Belum ada paket penitipan di ${store.nodeName}.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: FlexiColors.muted,
+                fontSize: 13,
+                height: 1.35,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 18,
+            offset: const Offset(0, 9),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          for (int index = 0; index < packages.length; index++)
+            _PackageListTile(
+              package: packages[index],
+              showDivider: index != packages.length - 1,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PackageListTile extends StatelessWidget {
+  const _PackageListTile({required this.package, required this.showDivider});
+
+  final _PartnerPackage package;
+  final bool showDivider;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = _statusLabel(package.status);
+    final color = _statusColor(package.status);
+    final background = _statusBackground(package.status);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(22, 16, 22, 0),
+      child: Column(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      package.orderId,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 21,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Nama Pelanggan: ${package.receiverName}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: FlexiColors.text,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              StatusPill(label: label, color: color, background: background),
+            ],
+          ),
+          if (showDivider) ...[
+            const SizedBox(height: 14),
+            const Divider(height: 1.2, thickness: 1.2),
+          ] else
+            const SizedBox(height: 18),
+        ],
+      ),
+    );
+  }
+
+  static String _statusLabel(DemoDeliveryStatus status) {
+    switch (status) {
+      case DemoDeliveryStatus.deliveredToNode:
+        return 'Menunggu Diambil';
+      case DemoDeliveryStatus.completed:
+        return 'Sudah Diambil';
+      case DemoDeliveryStatus.reroutedToNode:
+        return 'Sedang Diantar';
+      case DemoDeliveryStatus.offerPending:
+        return 'Menunggu Konfirmasi';
+      case DemoDeliveryStatus.trafficDetected:
+      case DemoDeliveryStatus.onDelivery:
+        return 'Sedang Diantar';
+    }
+  }
+
+  static Color _statusColor(DemoDeliveryStatus status) {
+    switch (status) {
+      case DemoDeliveryStatus.deliveredToNode:
+        return FlexiColors.green;
+      case DemoDeliveryStatus.completed:
+        return FlexiColors.blue;
+      case DemoDeliveryStatus.reroutedToNode:
+      case DemoDeliveryStatus.onDelivery:
+      case DemoDeliveryStatus.trafficDetected:
+        return FlexiColors.orange;
+      case DemoDeliveryStatus.offerPending:
+        return FlexiColors.red;
+    }
+  }
+
+  static Color _statusBackground(DemoDeliveryStatus status) {
+    switch (status) {
+      case DemoDeliveryStatus.deliveredToNode:
+        return FlexiColors.lightGreen;
+      case DemoDeliveryStatus.completed:
+        return FlexiColors.blueSoft;
+      case DemoDeliveryStatus.reroutedToNode:
+      case DemoDeliveryStatus.onDelivery:
+      case DemoDeliveryStatus.trafficDetected:
+        return FlexiColors.orangeSoft;
+      case DemoDeliveryStatus.offerPending:
+        return FlexiColors.redSoft;
+    }
+  }
+}
+
+class _PartnerPackage {
+  const _PartnerPackage({
+    required this.orderId,
+    required this.receiverName,
+    required this.status,
+  });
+
+  final String orderId;
+  final String receiverName;
+  final DemoDeliveryStatus status;
 }
