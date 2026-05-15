@@ -80,7 +80,7 @@ class ProfilePage extends StatelessWidget {
                       _InfoRow(label: 'Receiver', value: store.receiverName),
                       _InfoRow(label: 'Email', value: store.receiverEmail),
                       _InfoRow(
-                        label: 'Home location',
+                        label: 'Home address',
                         value: store.receiverLocationText,
                       ),
                       _InfoRow(label: 'Active order', value: store.orderId),

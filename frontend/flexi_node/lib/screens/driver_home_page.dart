@@ -520,7 +520,7 @@ class _RouteText extends StatelessWidget {
         Text(
           store.shouldRouteToNode
               ? 'New destination after receiver accepted.'
-              : 'Jl. Sudirman Kav 52-53, Senayan,...',
+              : store.receiverLocationText,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(

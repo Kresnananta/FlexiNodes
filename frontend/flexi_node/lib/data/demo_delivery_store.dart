@@ -7,6 +7,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 
+import '../services/geocoding_service.dart';
+
 enum DemoDeliveryStatus {
   onDelivery,
   trafficDetected,
@@ -141,6 +143,7 @@ class DemoDeliveryStore extends ChangeNotifier {
   String orderId = 'paket_001';
   String receiverName = 'Budiman';
   String receiverEmail = 'andika@example.com';
+  String receiverAddress = '';
   String driverName = 'Rizky Fahmi';
 
   String nodeId = fallbackNodes.first.id;
@@ -191,6 +194,22 @@ class DemoDeliveryStore extends ChangeNotifier {
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _chatSub;
 
   List<Map<String, dynamic>> _nodeDocs = const [];
+  String? _lastGeocodedLatLng;
+
+  static const String _googleMapsApiKey = String.fromEnvironment(
+    'GOOGLE_MAPS_API_KEY',
+  );
+  static const String _googleRoutesApiKey = String.fromEnvironment(
+    'GOOGLE_ROUTES_API_KEY',
+  );
+  static const String _webIndexMapsApiKey =
+      'AIzaSyCBA6L9i7NiCVCcEECuwYKd8ej6xQni8DY';
+
+  String get _geocodingApiKey {
+    if (_googleMapsApiKey.isNotEmpty) return _googleMapsApiKey;
+    if (_googleRoutesApiKey.isNotEmpty) return _googleRoutesApiKey;
+    return _webIndexMapsApiKey;
+  }
 
   // Online Cloud Function / Cloud Run API
   String get _apiUrl {
@@ -288,6 +307,11 @@ class DemoDeliveryStore extends ChangeNotifier {
                 _readGeoLongitude(targetLocation) ??
                 (data['target_longitude'] as num?)?.toDouble() ??
                 receiverLongitude;
+            receiverAddress =
+                data['targetAddress']?.toString() ??
+                data['receiverAddress']?.toString() ??
+                receiverAddress;
+            _resolveReceiverAddress();
 
             final aiOffer = data['ai_offer'];
             if (aiOffer is Map) {
@@ -561,6 +585,7 @@ class DemoDeliveryStore extends ChangeNotifier {
   }
 
   String get receiverLocationText {
+    if (receiverAddress.trim().isNotEmpty) return receiverAddress;
     return '${receiverLatitude.toStringAsFixed(4)}, ${receiverLongitude.toStringAsFixed(4)}';
   }
 
@@ -1075,10 +1100,15 @@ class DemoDeliveryStore extends ChangeNotifier {
         final data = doc.data();
         receiverName = data?['name'] ?? receiverName;
         receiverEmail = data?['email'] ?? receiverEmail;
+        receiverAddress =
+            data?['homeAddress']?.toString() ??
+            data?['address']?.toString() ??
+            receiverAddress;
         final homeLocation = data?['homeLocation'];
         receiverLatitude = _readGeoLatitude(homeLocation) ?? receiverLatitude;
         receiverLongitude =
             _readGeoLongitude(homeLocation) ?? receiverLongitude;
+        _resolveReceiverAddress();
         _rebuildPickupNodes();
         notifyListeners();
       }
@@ -1103,6 +1133,34 @@ class DemoDeliveryStore extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('Error fetching driver info: $e');
+    }
+  }
+
+  Future<void> _resolveReceiverAddress() async {
+    final key = _geocodingApiKey;
+    final latLngKey =
+        '${receiverLatitude.toStringAsFixed(6)},${receiverLongitude.toStringAsFixed(6)}';
+
+    if (key.isEmpty || _lastGeocodedLatLng == latLngKey) return;
+    if (receiverAddress.trim().isNotEmpty &&
+        !RegExp(r'^-?\d+\.\d+').hasMatch(receiverAddress.trim())) {
+      _lastGeocodedLatLng = latLngKey;
+      return;
+    }
+
+    _lastGeocodedLatLng = latLngKey;
+
+    try {
+      final address = await GeocodingService(apiKey: key).reverseGeocode(
+        latitude: receiverLatitude,
+        longitude: receiverLongitude,
+      );
+      if (address == null || address.trim().isEmpty) return;
+
+      receiverAddress = address;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Reverse geocoding skipped: $e');
     }
   }
 
