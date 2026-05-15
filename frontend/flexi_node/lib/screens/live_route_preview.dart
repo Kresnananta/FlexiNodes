@@ -4,6 +4,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../data/demo_delivery_store.dart';
 import '../services/routes_api_service.dart';
 import 'flexi_ui.dart';
+import 'map_marker_icons.dart';
 
 class LiveRoutePreview extends StatefulWidget {
   const LiveRoutePreview({
@@ -46,6 +47,16 @@ class _LiveRoutePreviewState extends State<LiveRoutePreview> {
   bool loadingRoute = false;
   String? routeError;
 
+  BitmapDescriptor driverMarkerIcon = BitmapDescriptor.defaultMarkerWithHue(
+    BitmapDescriptor.hueAzure,
+  );
+  BitmapDescriptor receiverMarkerIcon = BitmapDescriptor.defaultMarkerWithHue(
+    BitmapDescriptor.hueOrange,
+  );
+  BitmapDescriptor nodeMarkerIcon = BitmapDescriptor.defaultMarkerWithHue(
+    BitmapDescriptor.hueGreen,
+  );
+
   LatLng get selectedNodeLocation {
     return LatLng(
       demoDeliveryStore.nodeLatitude,
@@ -82,6 +93,7 @@ class _LiveRoutePreviewState extends State<LiveRoutePreview> {
   void initState() {
     super.initState();
     demoDeliveryStore.addListener(_onDeliveryChanged);
+    _loadMarkerIcons();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       loadRoute();
@@ -93,6 +105,34 @@ class _LiveRoutePreviewState extends State<LiveRoutePreview> {
     demoDeliveryStore.removeListener(_onDeliveryChanged);
     mapController?.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadMarkerIcons() async {
+    final icons = await Future.wait([
+      FlexiMapMarkerIcon.build(
+        shape: FlexiMapMarkerShape.circle,
+        color: FlexiColors.blue,
+        icon: Icons.local_shipping_outlined,
+      ),
+      FlexiMapMarkerIcon.build(
+        shape: FlexiMapMarkerShape.diamond,
+        color: FlexiColors.orange,
+        icon: Icons.person_pin_circle_outlined,
+      ),
+      FlexiMapMarkerIcon.build(
+        shape: FlexiMapMarkerShape.square,
+        color: FlexiColors.primary,
+        icon: Icons.storefront,
+      ),
+    ]);
+
+    if (!mounted) return;
+
+    setState(() {
+      driverMarkerIcon = icons[0];
+      receiverMarkerIcon = icons[1];
+      nodeMarkerIcon = icons[2];
+    });
   }
 
   void _onDeliveryChanged() {
@@ -168,7 +208,7 @@ class _LiveRoutePreviewState extends State<LiveRoutePreview> {
       Marker(
         markerId: const MarkerId('driver'),
         position: driverLocation,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        icon: driverMarkerIcon,
         infoWindow: InfoWindow(
           title: 'Driver: ${demoDeliveryStore.driverName}',
           snippet: 'Package courier',
@@ -177,7 +217,7 @@ class _LiveRoutePreviewState extends State<LiveRoutePreview> {
       Marker(
         markerId: const MarkerId('receiver'),
         position: receiverLocation,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+        icon: receiverMarkerIcon,
         infoWindow: InfoWindow(
           title: 'Receiver: ${demoDeliveryStore.receiverName}',
           snippet: 'Original delivery destination',
@@ -186,7 +226,7 @@ class _LiveRoutePreviewState extends State<LiveRoutePreview> {
       Marker(
         markerId: const MarkerId('selected-node'),
         position: selectedNodeLocation,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        icon: nodeMarkerIcon,
         infoWindow: InfoWindow(
           title: demoDeliveryStore.nodeName,
           snippet: 'Selected pickup node • ${demoDeliveryStore.nodeDistance}',

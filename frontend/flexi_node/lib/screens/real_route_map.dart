@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../data/demo_delivery_store.dart';
 import '../services/routes_api_service.dart';
 import 'flexi_ui.dart';
+import 'map_marker_icons.dart';
 
 class RealRouteMapPage extends StatefulWidget {
   const RealRouteMapPage({
@@ -48,6 +49,16 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
 
   String? gpsError;
   String? routeError;
+
+  BitmapDescriptor driverMarkerIcon = BitmapDescriptor.defaultMarkerWithHue(
+    BitmapDescriptor.hueAzure,
+  );
+  BitmapDescriptor receiverMarkerIcon = BitmapDescriptor.defaultMarkerWithHue(
+    BitmapDescriptor.hueOrange,
+  );
+  BitmapDescriptor nodeMarkerIcon = BitmapDescriptor.defaultMarkerWithHue(
+    BitmapDescriptor.hueGreen,
+  );
 
   bool get isDriverMode => widget.mode == 'driver';
 
@@ -104,6 +115,7 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
     driverLocation = demoDriverLocation;
 
     demoDeliveryStore.addListener(_onDemoStateChanged);
+    _loadMarkerIcons();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (usePhoneGps) {
@@ -119,6 +131,34 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
     demoDeliveryStore.removeListener(_onDemoStateChanged);
     mapController?.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadMarkerIcons() async {
+    final icons = await Future.wait([
+      FlexiMapMarkerIcon.build(
+        shape: FlexiMapMarkerShape.circle,
+        color: FlexiColors.blue,
+        icon: Icons.local_shipping_outlined,
+      ),
+      FlexiMapMarkerIcon.build(
+        shape: FlexiMapMarkerShape.diamond,
+        color: FlexiColors.orange,
+        icon: Icons.person_pin_circle_outlined,
+      ),
+      FlexiMapMarkerIcon.build(
+        shape: FlexiMapMarkerShape.square,
+        color: FlexiColors.primary,
+        icon: Icons.storefront,
+      ),
+    ]);
+
+    if (!mounted) return;
+
+    setState(() {
+      driverMarkerIcon = icons[0];
+      receiverMarkerIcon = icons[1];
+      nodeMarkerIcon = icons[2];
+    });
   }
 
   void _onDemoStateChanged() {
@@ -258,7 +298,7 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
       Marker(
         markerId: const MarkerId('driver'),
         position: driverLocation,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        icon: driverMarkerIcon,
         infoWindow: InfoWindow(
           title: isDriverMode
               ? 'You / Driver'
@@ -269,7 +309,7 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
       Marker(
         markerId: const MarkerId('receiver'),
         position: receiverLocation,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+        icon: receiverMarkerIcon,
         infoWindow: InfoWindow(
           title: 'Receiver: ${demoDeliveryStore.receiverName}',
           snippet: 'Original home delivery address',
@@ -278,7 +318,7 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
       Marker(
         markerId: const MarkerId('pickup-node'),
         position: nodeLocation,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        icon: nodeMarkerIcon,
         infoWindow: InfoWindow(
           title: demoDeliveryStore.nodeName,
           snippet: 'Flexi Pickup Node',
