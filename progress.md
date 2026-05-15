@@ -51,6 +51,15 @@ This document tracks the migration of FlexiNode from a hardcoded demo flow towar
 - [x] Updated nearby nodes page to use Firestore node data instead of `availableNodes`.
 - [x] Updated live route preview and real route map to use Firestore coordinates for driver, receiver, and selected node.
 - [x] Updated driver header and partner handover timeline to use dynamic store data.
+- [x] Added partner dashboard package summary cards for `Paket di Toko`, `Menunggu Diambil`, and `Sedang Diantar`.
+- [x] Added `Daftar Penitipan` on the partner dashboard using rerouted/stored/completed package summaries.
+- [x] Replaced separate partner scan/show actions with a unified `Scan / Show QR` flow that can be swiped between scanner and mitra QR display.
+- [x] Removed partner dashboard shortcuts for `Show Driver QR` and `Show Receiver QR`; those QR pages remain available from their own roles.
+- [x] Updated the partner scanner to accept both driver drop-off QR and customer pickup QR in one mode.
+- [x] Added driver-side `Scan Mitra QR` handover action from Driver Home, Delivery Details, and Real Route Map.
+- [x] Updated mitra QR processing so driver scans of `mitra_node` move the package to `delivered_to_node`.
+- [x] Kept customer pickup verification secured with both `orderId` matching and OTP validation.
+- [x] Updated receiver-facing `delivered_to_node` label to `Tiba di Mitra`.
 
 ### Verification
 - [x] Ran `dart format` on modified Flutter files.
@@ -58,6 +67,7 @@ This document tracks the migration of FlexiNode from a hardcoded demo flow towar
 - [x] Ran `flutter build web` successfully.
 - [x] Deployed updated Firestore rules successfully.
 - [x] Verified in the in-app browser on `http://localhost:5174/#/receiver-home`.
+- [x] Verified the latest web build on local static server `http://localhost:5175/#/partner-dashboard`.
 - [x] Confirmed user pages now show Firestore data such as `Budiman`, `SD-1001`, `FLX-DISCOUNT_5-4298`, profile email, and Firestore delivery summaries.
 
 ---
@@ -67,6 +77,7 @@ This document tracks the migration of FlexiNode from a hardcoded demo flow towar
 ### Browser Cache / Service Worker
 - [ ] `localhost:5173` may still show an older Flutter bundle because of cache/service worker state.
 - [ ] Current verified development URL is `http://localhost:5174/#/receiver-home`.
+- [ ] Latest partner/QR work was verified from the built web bundle on `http://localhost:5175/#/partner-dashboard`; hot-reload dev ports such as `localhost:58385` may need refresh/restart to pick up the newest bundle.
 
 ### End-to-End Flow
 - [ ] Full E2E flow still needs a final manual pass:
@@ -74,9 +85,10 @@ This document tracks the migration of FlexiNode from a hardcoded demo flow towar
   2. Backend/Gemini creates pending offer.
   3. Receiver sees offer and accepts pickup.
   4. Driver route changes to selected node.
-  5. Mitra scans driver QR.
-  6. Receiver scans pickup QR.
-  7. Delivery reaches `completed`.
+  5. Driver scans mitra QR to hand over the package and set status to `delivered_to_node` / `Tiba di Mitra`.
+  6. Customer shows pickup QR to mitra.
+  7. Mitra scans customer pickup QR and verifies `orderId` + OTP.
+  8. Delivery reaches `completed`.
 
 ### Security & Cleanup
 - [ ] Firestore rules are still demo-friendly. Restrict them before handover or production use.
@@ -92,7 +104,8 @@ This document tracks the migration of FlexiNode from a hardcoded demo flow towar
 3. Tighten Firestore rules by role (`receiver`, `driver`, `partner`) before final demo handover.
 4. Replace remaining fallback/demo-only labels where a production field should exist, especially formatted addresses and richer delivery metadata.
 5. Clean existing Flutter lint/deprecation info when the integration flow is stable.
+6. Add manual QA screenshots or short screen recordings for the driver scan mitra QR and partner pickup verification flow.
 
 ---
 
-*Last updated: May 15, 2026*
+*Last updated: May 16, 2026*
