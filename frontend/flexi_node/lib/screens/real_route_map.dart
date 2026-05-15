@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -5,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../data/demo_delivery_store.dart';
 import '../services/routes_api_service.dart';
 import 'flexi_ui.dart';
+import 'map_marker_icons.dart';
 
 class RealRouteMapPage extends StatefulWidget {
   const RealRouteMapPage({
@@ -28,6 +31,8 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
   static const String routesApiKey = String.fromEnvironment(
     'GOOGLE_ROUTES_API_KEY',
   );
+  static const Duration liveLocationInterval = Duration(seconds: 7);
+  static const Duration routeRefreshInterval = Duration(seconds: 30);
 
   final RoutesApiService routesApi = RoutesApiService(apiKey: routesApiKey);
 
@@ -48,6 +53,18 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
 
   String? gpsError;
   String? routeError;
+  Timer? liveLocationTimer;
+  DateTime? lastRouteRefreshAt;
+
+  BitmapDescriptor driverMarkerIcon = BitmapDescriptor.defaultMarkerWithHue(
+    BitmapDescriptor.hueAzure,
+  );
+  BitmapDescriptor receiverMarkerIcon = BitmapDescriptor.defaultMarkerWithHue(
+    BitmapDescriptor.hueOrange,
+  );
+  BitmapDescriptor nodeMarkerIcon = BitmapDescriptor.defaultMarkerWithHue(
+    BitmapDescriptor.hueGreen,
+  );
 
   bool get isDriverMode => widget.mode == 'driver';
 
@@ -104,6 +121,7 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
     driverLocation = demoDriverLocation;
 
     demoDeliveryStore.addListener(_onDemoStateChanged);
+    _loadMarkerIcons();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (usePhoneGps) {
@@ -116,59 +134,79 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
 
   @override
   void dispose() {
+    liveLocationTimer?.cancel();
     demoDeliveryStore.removeListener(_onDemoStateChanged);
     mapController?.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadMarkerIcons() async {
+    final icons = await Future.wait([
+      FlexiMapMarkerIcon.build(
+        shape: FlexiMapMarkerShape.circle,
+        color: FlexiColors.blue,
+        icon: Icons.local_shipping_outlined,
+      ),
+      FlexiMapMarkerIcon.build(
+        shape: FlexiMapMarkerShape.diamond,
+        color: FlexiColors.orange,
+        icon: Icons.person_pin_circle_outlined,
+      ),
+      FlexiMapMarkerIcon.build(
+        shape: FlexiMapMarkerShape.square,
+        color: FlexiColors.primary,
+        icon: Icons.storefront,
+      ),
+    ]);
+
+    if (!mounted) return;
+
+    setState(() {
+      driverMarkerIcon = icons[0];
+      receiverMarkerIcon = icons[1];
+      nodeMarkerIcon = icons[2];
+    });
   }
 
   void _onDemoStateChanged() {
     if (!mounted) return;
     if (!usePhoneGps) {
       driverLocation = demoDriverLocation;
+      final now = DateTime.now();
+      if (lastRouteRefreshAt == null ||
+          now.difference(lastRouteRefreshAt!) >= routeRefreshInterval) {
+        loadRoute();
+      } else {
+        setState(() {});
+      }
+      return;
     }
-    loadRoute();
   }
 
   Future<void> loadPhoneGps() async {
+    liveLocationTimer?.cancel();
+
     setState(() {
       loadingGps = true;
       gpsError = null;
     });
 
     try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-
-      if (!serviceEnabled) {
-        throw Exception('GPS is disabled. Please turn on location services.');
-      }
-
-      LocationPermission permission = await Geolocator.checkPermission();
-
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.denied) {
-        throw Exception('Location permission denied.');
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        throw Exception(
-          'Location permission denied forever. Enable it in app settings.',
-        );
-      }
-
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-
       setState(() {
-        driverLocation = LatLng(position.latitude, position.longitude);
         usePhoneGps = true;
       });
 
-      await loadRoute();
+      await _publishPhoneGpsLocation(forceRouteRefresh: true);
+      liveLocationTimer = Timer.periodic(liveLocationInterval, (_) {
+        _publishPhoneGpsLocation().catchError((Object e) {
+          if (!mounted) return;
+          setState(() {
+            gpsError = e.toString().replaceFirst('Exception: ', '');
+          });
+        });
+      });
     } catch (e) {
+      liveLocationTimer?.cancel();
       setState(() {
         gpsError = e.toString().replaceFirst('Exception: ', '');
         usePhoneGps = false;
@@ -183,7 +221,61 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
     }
   }
 
+  Future<void> _publishPhoneGpsLocation({
+    bool forceRouteRefresh = false,
+  }) async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+
+    if (!serviceEnabled) {
+      throw Exception('GPS is disabled. Please turn on location services.');
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied) {
+      throw Exception('Location permission denied.');
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      throw Exception(
+        'Location permission denied forever. Enable it in app settings.',
+      );
+    }
+
+    final position = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
+    final nextLocation = LatLng(position.latitude, position.longitude);
+
+    if (!mounted) return;
+
+    setState(() {
+      driverLocation = nextLocation;
+      gpsError = null;
+    });
+
+    await demoDeliveryStore.updateDriverLiveLocation(
+      latitude: position.latitude,
+      longitude: position.longitude,
+    );
+
+    final now = DateTime.now();
+    final shouldRefreshRoute =
+        forceRouteRefresh ||
+        lastRouteRefreshAt == null ||
+        now.difference(lastRouteRefreshAt!) >= routeRefreshInterval;
+
+    if (shouldRefreshRoute) {
+      await loadRoute();
+    }
+  }
+
   Future<void> useDemoGps() async {
+    liveLocationTimer?.cancel();
     setState(() {
       usePhoneGps = false;
       driverLocation = demoDriverLocation;
@@ -209,11 +301,13 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
         routePoints = result.points;
         distanceMeters = result.distanceMeters;
         durationText = result.durationText;
+        lastRouteRefreshAt = DateTime.now();
       });
     } catch (e) {
       setState(() {
         routeError = e.toString().replaceFirst('Exception: ', '');
         routePoints = [driverLocation, destination];
+        lastRouteRefreshAt = DateTime.now();
       });
     } finally {
       if (mounted) {
@@ -258,7 +352,7 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
       Marker(
         markerId: const MarkerId('driver'),
         position: driverLocation,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        icon: driverMarkerIcon,
         infoWindow: InfoWindow(
           title: isDriverMode
               ? 'You / Driver'
@@ -269,7 +363,7 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
       Marker(
         markerId: const MarkerId('receiver'),
         position: receiverLocation,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+        icon: receiverMarkerIcon,
         infoWindow: InfoWindow(
           title: 'Receiver: ${demoDeliveryStore.receiverName}',
           snippet: 'Original home delivery address',
@@ -278,7 +372,7 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
       Marker(
         markerId: const MarkerId('pickup-node'),
         position: nodeLocation,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        icon: nodeMarkerIcon,
         infoWindow: InfoWindow(
           title: demoDeliveryStore.nodeName,
           snippet: 'Flexi Pickup Node',
