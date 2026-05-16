@@ -127,8 +127,7 @@ class FlexiNodesApp extends StatelessWidget {
 
           return MaterialPageRoute(
             builder: (context) => QrScannerPage(
-              expectedType:
-                  args?['expectedType'] as String? ?? 'driver_dropoff',
+              expectedType: args?['expectedType'] as String?,
               title: args?['title'] as String? ?? 'Scan QR',
             ),
           );

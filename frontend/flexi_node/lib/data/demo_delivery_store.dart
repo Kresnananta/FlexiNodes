@@ -1111,29 +1111,101 @@ class DemoDeliveryStore extends ChangeNotifier {
   }
 
   Future<void> sendChatMessage(String message) async {
+    final trimmedMessage = message.trim();
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
-    if (uid == null || message.trim().isEmpty) return;
+    if (trimmedMessage.isEmpty) return;
+
+    if (uid == null) {
+      _addLocalAiMessage(
+        sender: 'User',
+        type: 'user',
+        message: trimmedMessage,
+        shouldNotify: false,
+      );
+      _addLocalAiMessage(
+        sender: 'Flexi AI',
+        type: 'ai_chat',
+        message: _buildInformativeChatResponse(trimmedMessage),
+      );
+      return;
+    }
 
     isChatLoading = true;
     notifyListeners();
 
     try {
-      await http.post(
+      final response = await http.post(
         Uri.parse('$_apiUrl/chat'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'deliveryId': _deliveryId,
           'receiverId': uid,
-          'message': message,
+          'message': trimmedMessage,
         }),
       );
+
+      if (response.statusCode >= 400) {
+        throw Exception('Chat API returned ${response.statusCode}');
+      }
     } catch (e) {
       debugPrint('Error sending chat: $e');
+      _addLocalAiMessage(
+        sender: 'User',
+        type: 'user',
+        message: trimmedMessage,
+        shouldNotify: false,
+      );
+      _addLocalAiMessage(
+        sender: 'Flexi AI',
+        type: 'ai_chat',
+        message: _buildInformativeChatResponse(trimmedMessage),
+        shouldNotify: false,
+      );
     } finally {
       isChatLoading = false;
       notifyListeners();
     }
+  }
+
+  String _buildInformativeChatResponse(String userMessage) {
+    final lowerMessage = userMessage.toLowerCase();
+    final asksReroute =
+        lowerMessage.contains('kemana') ||
+        lowerMessage.contains('ke mana') ||
+        lowerMessage.contains('dialih') ||
+        lowerMessage.contains('rute') ||
+        lowerMessage.contains('mitra') ||
+        lowerMessage.contains('node') ||
+        lowerMessage.contains('lokasi');
+    final asksVoucher =
+        lowerMessage.contains('voucher') ||
+        lowerMessage.contains('kompensasi') ||
+        lowerMessage.contains('cashback') ||
+        lowerMessage.contains('diskon');
+    final delayText = delayMinutes > 0
+        ? 'estimasi keterlambatan sekitar $delayMinutes menit'
+        : 'tidak ada keterlambatan besar yang tercatat saat ini';
+    final destinationText = shouldRouteToNode || offerCreated
+        ? '$nodeName, sekitar $nodeDistance dari alamat penerima'
+        : 'alamat penerima';
+    final voucherText = voucherEligible || offerCreated
+        ? 'Voucher kompensasi $formattedVoucher ${voucherCode == null ? 'akan tersedia di notifikasi.' : 'dengan kode $voucherCode sudah tersedia.'}'
+        : 'Voucher belum diterbitkan karena belum ada pengalihan yang disetujui.';
+
+    if (asksVoucher) {
+      return '$voucherText Paket $orderId ${shouldRouteToNode ? 'sudah dialihkan ke $destinationText' : 'masih dalam proses pengiriman'} karena $delayText.';
+    }
+
+    if (asksReroute && !shouldRouteToNode && !offerCreated) {
+      return 'Paket $orderId belum dialihkan ke mitra. Tujuan aktifnya masih alamat penerima, dan $delayText. $voucherText';
+    }
+
+    if (asksReroute || shouldRouteToNode) {
+      return 'Paket $orderId dialihkan ke $destinationText. Pengalihan dilakukan karena rute awal mengalami kemacetan berat dengan $delayText. $voucherText Anda tidak perlu melakukan apa pun; $driverFirstName akan melanjutkan pengiriman melalui rute alternatif.';
+    }
+
+    return 'Status paket $orderId saat ini: $activeDeliveryStatusLabel. Tujuan aktifnya $destinationText, dengan $delayText. $voucherText';
   }
 
   Future<void> resetDemo() async {
@@ -1218,25 +1290,26 @@ class DemoDeliveryStore extends ChangeNotifier {
         const AiChatMessage(
           sender: 'Flexi AI',
           type: 'observe',
-          message: 'Heavy traffic detected near receiver location.',
+          message:
+              'Saya mendeteksi kemacetan berat di sekitar alamat penerima.',
         ),
         const AiChatMessage(
           sender: 'Flexi AI',
           type: 'reason',
           message:
-              'Current delay estimate is 20 minutes. Offering a pickup voucher is cheaper than forcing the courier through traffic.',
+              'Estimasi keterlambatan saat ini sekitar 20 menit, jadi opsi pickup node bisa memangkas waktu tunggu.',
         ),
         AiChatMessage(
           sender: 'Flexi AI',
           type: 'select_node',
           message:
-              'Recommended node found: $nodeName, $nodeDistance from receiver, with $nodeCapacity.',
+              'Rekomendasi mitra: $nodeName, sekitar $nodeDistance dari alamat penerima, dengan kapasitas $nodeCapacity.',
         ),
         const AiChatMessage(
           sender: 'Flexi AI',
           type: 'action',
           message:
-              'Pickup offer sent to receiver. Waiting for receiver approval.',
+              'Penawaran pickup node sudah dikirim ke penerima. Saya menunggu persetujuan sebelum rute driver diubah.',
         ),
       ]);
 
@@ -1260,13 +1333,13 @@ class DemoDeliveryStore extends ChangeNotifier {
       AiChatMessage(
         sender: 'System',
         type: 'system',
-        message: 'Delivery destination updated to $nodeName.',
+        message: 'Tujuan pengiriman diperbarui ke $nodeName.',
       ),
       AiChatMessage(
         sender: 'Flexi AI',
         type: 'action',
         message:
-            'Driver route has been updated. Pickup voucher $formattedVoucher will be issued.',
+            'Rute driver sudah diperbarui ke $nodeName. Voucher pickup $formattedVoucher akan diterbitkan dan bisa dicek di notifikasi.',
       ),
     ]);
 
