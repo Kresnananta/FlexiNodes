@@ -583,9 +583,11 @@ class DemoDeliveryStore extends ChangeNotifier {
                 return tA.compareTo(tB);
               });
 
-              aiMessages = docs.map((doc) {
-                return AiChatMessage.fromJson(doc.data());
-              }).toList();
+              aiMessages = _dedupeAiMessages(
+                docs.map((doc) {
+                  return AiChatMessage.fromJson(doc.data());
+                }).toList(),
+              );
 
               if (aiMessages.isEmpty) {
                 aiMessages.add(
@@ -1228,22 +1230,7 @@ class DemoDeliveryStore extends ChangeNotifier {
     final trimmedMessage = message.trim();
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
-    if (trimmedMessage.isEmpty) return;
-
-    if (uid == null) {
-      _addLocalAiMessage(
-        sender: 'User',
-        type: 'user',
-        message: trimmedMessage,
-        shouldNotify: false,
-      );
-      _addLocalAiMessage(
-        sender: 'Flexi AI',
-        type: 'ai_chat',
-        message: _buildInformativeChatResponse(trimmedMessage),
-      );
-      return;
-    }
+    if (trimmedMessage.isEmpty || isChatLoading) return;
 
     isChatLoading = true;
     notifyListeners();
@@ -1254,13 +1241,34 @@ class DemoDeliveryStore extends ChangeNotifier {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'deliveryId': _deliveryId,
-          'receiverId': uid,
+          'receiverId': uid ?? 'web_guest',
           'message': trimmedMessage,
         }),
       );
 
       if (response.statusCode >= 400) {
         throw Exception('Chat API returned ${response.statusCode}');
+      }
+
+      if (uid == null) {
+        final decoded = jsonDecode(response.body);
+        final aiResponse = decoded is Map
+            ? decoded['response']?.toString()
+            : null;
+        _addLocalAiMessage(
+          sender: 'User',
+          type: 'user',
+          message: trimmedMessage,
+          shouldNotify: false,
+        );
+        _addLocalAiMessage(
+          sender: 'Flexi AI',
+          type: 'ai_chat',
+          message: aiResponse == null || aiResponse.trim().isEmpty
+              ? _buildInformativeChatResponse(trimmedMessage)
+              : aiResponse,
+          shouldNotify: false,
+        );
       }
     } catch (e) {
       debugPrint('Error sending chat: $e');
@@ -1545,11 +1553,38 @@ class DemoDeliveryStore extends ChangeNotifier {
     required String message,
     bool shouldNotify = true,
   }) {
-    aiMessages.add(AiChatMessage(sender: sender, type: type, message: message));
+    final trimmedMessage = message.trim();
+    if (trimmedMessage.isEmpty) return;
+
+    final alreadyExists = aiMessages.any((existing) {
+      return existing.sender == sender &&
+          existing.type == type &&
+          existing.message.trim() == trimmedMessage;
+    });
+
+    if (alreadyExists) return;
+
+    aiMessages.add(
+      AiChatMessage(sender: sender, type: type, message: trimmedMessage),
+    );
 
     if (shouldNotify) {
       notifyListeners();
     }
+  }
+
+  List<AiChatMessage> _dedupeAiMessages(List<AiChatMessage> messages) {
+    final seen = <String>{};
+    final result = <AiChatMessage>[];
+
+    for (final message in messages) {
+      final key = '${message.sender}|${message.type}|${message.message.trim()}';
+      if (seen.add(key)) {
+        result.add(message);
+      }
+    }
+
+    return result;
   }
 
   Future<void> _fetchReceiverInfo(
