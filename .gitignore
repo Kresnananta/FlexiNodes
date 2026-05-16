@@ -20,3 +20,5 @@ Thumbs.db
 
 # Frontend Maps API
 frontend/.env
+frontend/flexi_node/web/maps_config.js
+frontend/flexi_node/env.local.json

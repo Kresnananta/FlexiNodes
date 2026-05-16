@@ -56,18 +56,6 @@ void main() async {
   // - Start emulator with:
   //   firebase emulators:start --host 0.0.0.0
 
-  // Konfigurasi Firebase Asli untuk flexi-nodes
-  // const firebaseOptions = FirebaseOptions(
-  //   apiKey: 'AIzaSyDFpk4Rffw3wNnuw--XRw_FeRnh-Z7Y0vM',
-  //   appId: '1:807475730103:web:0c6367e7613e4283ae5f32',
-  //   messagingSenderId: '807475730103',
-  //   projectId: 'flexi-nodes',
-  //   authDomain: 'flexi-nodes.firebaseapp.com',
-  //   storageBucket: 'flexi-nodes.firebasestorage.app',
-  //   measurementId: 'G-V06FPKTNKV',
-  // );
-
-  // await Firebase.initializeApp(options: firebaseOptions);
   try {
     await FirebaseAuth.instance.signInAnonymously();
     debugPrint(

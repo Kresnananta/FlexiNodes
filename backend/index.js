@@ -225,6 +225,43 @@ const app = express();
 app.use(cors({ origin: true }));
 app.use(express.json());
 
+function formatWibTime(date) {
+  return new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Jakarta",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date).replace(".", ":");
+}
+
+function buildEtaUpdate({
+  durationSeconds = 0,
+  destinationType = "receiver",
+  source = "fallback",
+  confidence = "low",
+  now = new Date(),
+} = {}) {
+  const parsedDuration = Number(durationSeconds);
+  if (!Number.isFinite(parsedDuration) || parsedDuration <= 0) {
+    return {
+      estimatedArrivalAt: null,
+      estimatedArrivalLabel: "Sesuai jadwal, jam spesifik belum tersedia",
+      etaDestinationType: destinationType,
+      etaSource: source,
+      etaConfidence: confidence,
+    };
+  }
+
+  const etaDate = new Date(now.getTime() + parsedDuration * 1000);
+  return {
+    estimatedArrivalAt: admin.firestore.Timestamp.fromDate(etaDate),
+    estimatedArrivalLabel: `${formatWibTime(etaDate)} WIB`,
+    etaDestinationType: destinationType,
+    etaSource: source,
+    etaConfidence: confidence,
+  };
+}
+
 // [GET] /api/deliveries - Mendapatkan daftar paket
 app.get('/deliveries', async (req, res) => {
   try {
@@ -262,14 +299,27 @@ app.post('/simulate-traffic', async (req, res) => {
       return res.status(404).json({ success: false, error: `Dokumen ${deliveryId} tidak ada di koleksi 'deliveries'. Silakan buat dulu di Emulator UI.` });
     }
 
+    const selectedDelay = delayMinutes || 20;
+    const staticDurationSeconds = 25 * 60;
+    const trafficDurationSeconds = staticDurationSeconds + selectedDelay * 60;
+
     await docRef.update({
-      delayMinutes: delayMinutes || 20, // Default > 15 untuk trigger AI
-      current_traffic_delay: delayMinutes || 20,
+      delayMinutes: selectedDelay, // Default > 15 untuk trigger AI
+      current_traffic_delay: selectedDelay,
       homeDeliverySelected: false,
       trafficMode: "demo",
+      trafficDurationSeconds,
+      trafficStaticDurationSeconds: staticDurationSeconds,
+      trafficCheckedAt: FieldValue.serverTimestamp(),
+      ...buildEtaUpdate({
+        durationSeconds: trafficDurationSeconds,
+        destinationType: "receiver",
+        source: "demo",
+        confidence: "medium",
+      }),
       updatedAt: FieldValue.serverTimestamp()
     });
-    res.json({ success: true, message: `Simulated ${delayMinutes || 20} min delay on ${deliveryId}. AI is analyzing...` });
+    res.json({ success: true, message: `Simulated ${selectedDelay} min delay on ${deliveryId}. AI is analyzing...` });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -301,10 +351,13 @@ app.post('/accept-offer', async (req, res) => {
 
     const offerDoc = offersSnapshot.docs[0];
     const offerData = offerDoc.data();
+    const deliveryDoc = await db.collection('deliveries').doc(deliveryId).get();
+    const deliveryData = deliveryDoc.exists ? deliveryDoc.data() : {};
     const selectedNodeId = nodeId || offerData.nodeId;
     const selectedNodeName = nodeName || offerData.nodeName;
     const selectedVoucherAmount = voucherAmount || cashbackAmount || offerData.voucherAmount || offerData.cashback_amount || 5000;
     const selectedVoucherType = voucherTypeForAmount(selectedVoucherAmount, offerData.voucherType);
+    const fallbackDurationSeconds = Number(deliveryData.trafficDurationSeconds) || (15 * 60);
 
     // 2. Buat OTP acak dan kode Voucher
     const pickupOtp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -318,6 +371,12 @@ app.post('/accept-offer', async (req, res) => {
       voucherAmount: selectedVoucherAmount,
       cashbackAmount: selectedVoucherAmount,
       otpCode: pickupOtp,
+      ...buildEtaUpdate({
+        durationSeconds: fallbackDurationSeconds,
+        destinationType: "node",
+        source: deliveryData.trafficDurationSeconds ? "traffic_fallback" : "fallback",
+        confidence: deliveryData.trafficDurationSeconds ? "medium" : "low",
+      }),
       updatedAt: FieldValue.serverTimestamp()
     };
 
@@ -380,6 +439,7 @@ function buildChatContext(deliveryId, deliveryData = {}, offerData = {}) {
     0
   ));
   const normalizedDelay = Number.isFinite(delayMinutes) ? delayMinutes : 0;
+  const trafficDurationSeconds = Number(deliveryData.trafficDurationSeconds) || 0;
   const hasActiveOffer = ["pending", "accepted"].includes(offerData.status);
   const hasRerouteContext = [
     "offer_pending",
@@ -421,13 +481,19 @@ function buildChatContext(deliveryId, deliveryData = {}, offerData = {}) {
     offerStatus: hasActiveOffer ? offerData.status : null,
     offerReason: hasActiveOffer ? offerData.reason : null,
     etaText: firstPresent(
+      deliveryData.estimatedArrivalLabel,
       deliveryData.estimatedArrivalText,
       deliveryData.estimatedArrival,
       deliveryData.eta,
       deliveryData.etaText
-    ) || (normalizedDelay > 0
+    ) || (trafficDurationSeconds > 0
+      ? `${formatWibTime(new Date(Date.now() + trafficDurationSeconds * 1000))} WIB`
+      : normalizedDelay > 0
       ? `bertambah sekitar ${normalizedDelay} menit`
       : "sesuai jadwal, jam spesifik belum tercatat"),
+    etaDestinationType: firstPresent(deliveryData.etaDestinationType, hasRerouteContext ? "node" : "receiver"),
+    etaSource: deliveryData.etaSource,
+    etaConfidence: deliveryData.etaConfidence,
     otpCode: deliveryData.otpCode,
   };
 }
@@ -436,6 +502,7 @@ function buildRuleBasedChatResponse(context, userMessage) {
   const lowerMessage = String(userMessage).toLowerCase();
   const asksReroute = /(kemana|ke mana|dialihkan|alih|rute|mitra|node|lokasi)/i.test(lowerMessage);
   const asksVoucher = /(voucher|kompensasi|cashback|diskon)/i.test(lowerMessage);
+  const asksEta = /(estimasi|eta|tiba|sampai|kapan)/i.test(lowerMessage);
   const delayText = context.delayMinutes > 0
     ? `estimasi keterlambatan sekitar ${context.delayMinutes} menit`
     : "tidak ada keterlambatan besar yang tercatat saat ini";
@@ -451,6 +518,13 @@ function buildRuleBasedChatResponse(context, userMessage) {
       return `Belum ada voucher untuk paket ${context.deliveryId} karena paket belum dialihkan ke mitra. Status paket masih on delivery dan kondisi trafik tercatat normal.`;
     }
     return `${voucherText} Paket ${context.deliveryId} ${context.selectedNodeName ? `dialihkan ke ${nodeText}` : "sedang diproses untuk rute alternatif"} karena ${delayText}.`;
+  }
+
+  if (asksEta) {
+    const destinationText = context.hasRerouteContext && context.selectedNodeName
+      ? `ke ${nodeText}`
+      : "ke alamat penerima";
+    return `Estimasi tiba paket ${context.deliveryId} ${destinationText} adalah ${context.etaText}. ${context.delayMinutes > 0 ? `Perhitungan ini sudah memperhitungkan ${delayText}.` : "Kondisi trafik saat ini normal."}`;
   }
 
   if (asksReroute && !context.hasRerouteContext) {
@@ -532,6 +606,9 @@ Data Paket Saat Ini:
 - Delay Kemacetan: ${chatContext.delayMinutes} menit
 - Kondisi Trafik: ${chatContext.trafficStatus || "belum tercatat"}
 - Estimasi Tiba: ${chatContext.etaText}
+- Tujuan ETA: ${chatContext.etaDestinationType}
+- Sumber ETA: ${chatContext.etaSource || "belum tercatat"}
+- Confidence ETA: ${chatContext.etaConfidence || "belum tercatat"}
 - Voucher: ${chatContext.voucherText || "belum tercatat"}
 - Kode Voucher: ${chatContext.voucherCode || "belum tercatat"}
 - Status Offer: ${chatContext.offerStatus || "belum tercatat"}

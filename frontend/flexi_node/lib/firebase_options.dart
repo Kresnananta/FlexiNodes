@@ -15,6 +15,19 @@ import 'package:flutter/foundation.dart'
 /// );
 /// ```
 class DefaultFirebaseOptions {
+  static const String _webApiKey = String.fromEnvironment(
+    'FIREBASE_WEB_API_KEY',
+    defaultValue: '',
+  );
+  static const String _androidApiKey = String.fromEnvironment(
+    'FIREBASE_ANDROID_API_KEY',
+    defaultValue: '',
+  );
+  static const String _appleApiKey = String.fromEnvironment(
+    'FIREBASE_APPLE_API_KEY',
+    defaultValue: '',
+  );
+
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
       return web;
@@ -41,7 +54,7 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDFpk4Rffw3wNnuw--XRw_FeRnh-Z7Y0vM',
+    apiKey: _webApiKey,
     appId: '1:807475730103:web:0c6367e7613e4283ae5f32',
     messagingSenderId: '807475730103',
     projectId: 'flexi-nodes',
@@ -51,7 +64,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAbcc5vHzA1AyXk7zzyy-6bXlfFr7sqHsc',
+    apiKey: _androidApiKey,
     appId: '1:807475730103:android:df07fbc584d91045ae5f32',
     messagingSenderId: '807475730103',
     projectId: 'flexi-nodes',
@@ -59,7 +72,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyD9_YAeSXle9etcnSQ14CqE-npj75Di2EY',
+    apiKey: _appleApiKey,
     appId: '1:807475730103:ios:bd7a29048c930b6bae5f32',
     messagingSenderId: '807475730103',
     projectId: 'flexi-nodes',
@@ -68,7 +81,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyD9_YAeSXle9etcnSQ14CqE-npj75Di2EY',
+    apiKey: _appleApiKey,
     appId: '1:807475730103:ios:bd7a29048c930b6bae5f32',
     messagingSenderId: '807475730103',
     projectId: 'flexi-nodes',
@@ -77,7 +90,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyDFpk4Rffw3wNnuw--XRw_FeRnh-Z7Y0vM',
+    apiKey: _webApiKey,
     appId: '1:807475730103:web:5cfe2bceeeb809adae5f32',
     messagingSenderId: '807475730103',
     projectId: 'flexi-nodes',
