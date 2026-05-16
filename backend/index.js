@@ -124,7 +124,7 @@ async function handleTrafficDelay(deliveryId, deliveryData) {
       await db.collection('AI_message').add({
         deliveryId: deliveryId,
         sender: "Flexi AI",
-        message: `Hai! Saya mendeteksi ada kemacetan parah di rute Anda (delay ~${delay} menit). Saya punya tawaran rute alternatif ke mitra terdekat dengan kompensasi voucher! Silakan cek notifikasi Anda.`,
+        message: `Hai! Saya mendeteksi kemacetan berat di rute paket ${deliveryId} dengan estimasi keterlambatan sekitar ${delay} menit. Rute alternatif yang saya rekomendasikan adalah ${nodeInfo ? nodeInfo.name : "mitra FlexiNode terdekat"}${nodeInfo ? `, sekitar ${Math.round(nodeInfo.distance_km * 1000)} meter dari tujuan` : ""}. Silakan cek notifikasi untuk melihat detail mitra dan kompensasi voucher.`,
         type: "ai_reasoning",
         createdAt: FieldValue.serverTimestamp()
       });
@@ -225,6 +225,43 @@ const app = express();
 app.use(cors({ origin: true }));
 app.use(express.json());
 
+function formatWibTime(date) {
+  return new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Jakarta",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date).replace(".", ":");
+}
+
+function buildEtaUpdate({
+  durationSeconds = 0,
+  destinationType = "receiver",
+  source = "fallback",
+  confidence = "low",
+  now = new Date(),
+} = {}) {
+  const parsedDuration = Number(durationSeconds);
+  if (!Number.isFinite(parsedDuration) || parsedDuration <= 0) {
+    return {
+      estimatedArrivalAt: null,
+      estimatedArrivalLabel: "Sesuai jadwal, jam spesifik belum tersedia",
+      etaDestinationType: destinationType,
+      etaSource: source,
+      etaConfidence: confidence,
+    };
+  }
+
+  const etaDate = new Date(now.getTime() + parsedDuration * 1000);
+  return {
+    estimatedArrivalAt: admin.firestore.Timestamp.fromDate(etaDate),
+    estimatedArrivalLabel: `${formatWibTime(etaDate)} WIB`,
+    etaDestinationType: destinationType,
+    etaSource: source,
+    etaConfidence: confidence,
+  };
+}
+
 // [GET] /api/deliveries - Mendapatkan daftar paket
 app.get('/deliveries', async (req, res) => {
   try {
@@ -262,14 +299,27 @@ app.post('/simulate-traffic', async (req, res) => {
       return res.status(404).json({ success: false, error: `Dokumen ${deliveryId} tidak ada di koleksi 'deliveries'. Silakan buat dulu di Emulator UI.` });
     }
 
+    const selectedDelay = delayMinutes || 20;
+    const staticDurationSeconds = 25 * 60;
+    const trafficDurationSeconds = staticDurationSeconds + selectedDelay * 60;
+
     await docRef.update({
-      delayMinutes: delayMinutes || 20, // Default > 15 untuk trigger AI
-      current_traffic_delay: delayMinutes || 20,
+      delayMinutes: selectedDelay, // Default > 15 untuk trigger AI
+      current_traffic_delay: selectedDelay,
       homeDeliverySelected: false,
       trafficMode: "demo",
+      trafficDurationSeconds,
+      trafficStaticDurationSeconds: staticDurationSeconds,
+      trafficCheckedAt: FieldValue.serverTimestamp(),
+      ...buildEtaUpdate({
+        durationSeconds: trafficDurationSeconds,
+        destinationType: "receiver",
+        source: "demo",
+        confidence: "medium",
+      }),
       updatedAt: FieldValue.serverTimestamp()
     });
-    res.json({ success: true, message: `Simulated ${delayMinutes || 20} min delay on ${deliveryId}. AI is analyzing...` });
+    res.json({ success: true, message: `Simulated ${selectedDelay} min delay on ${deliveryId}. AI is analyzing...` });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -301,10 +351,13 @@ app.post('/accept-offer', async (req, res) => {
 
     const offerDoc = offersSnapshot.docs[0];
     const offerData = offerDoc.data();
+    const deliveryDoc = await db.collection('deliveries').doc(deliveryId).get();
+    const deliveryData = deliveryDoc.exists ? deliveryDoc.data() : {};
     const selectedNodeId = nodeId || offerData.nodeId;
     const selectedNodeName = nodeName || offerData.nodeName;
     const selectedVoucherAmount = voucherAmount || cashbackAmount || offerData.voucherAmount || offerData.cashback_amount || 5000;
     const selectedVoucherType = voucherTypeForAmount(selectedVoucherAmount, offerData.voucherType);
+    const fallbackDurationSeconds = Number(deliveryData.trafficDurationSeconds) || (15 * 60);
 
     // 2. Buat OTP acak dan kode Voucher
     const pickupOtp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -318,6 +371,12 @@ app.post('/accept-offer', async (req, res) => {
       voucherAmount: selectedVoucherAmount,
       cashbackAmount: selectedVoucherAmount,
       otpCode: pickupOtp,
+      ...buildEtaUpdate({
+        durationSeconds: fallbackDurationSeconds,
+        destinationType: "node",
+        source: deliveryData.trafficDurationSeconds ? "traffic_fallback" : "fallback",
+        confidence: deliveryData.trafficDurationSeconds ? "medium" : "low",
+      }),
       updatedAt: FieldValue.serverTimestamp()
     };
 
@@ -355,6 +414,130 @@ function voucherTypeForAmount(amount, fallback = "discount_5") {
   return fallback;
 }
 
+function firstPresent(...values) {
+  return values.find((value) => value !== undefined && value !== null && value !== "");
+}
+
+function formatRupiah(amount) {
+  const parsed = Number(amount);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return `Rp${parsed.toLocaleString("id-ID")}`;
+}
+
+function formatDistance(meters) {
+  const parsed = Number(meters);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  if (parsed >= 1000) return `${(parsed / 1000).toFixed(1).replace(".", ",")} km`;
+  return `${Math.round(parsed)} meter`;
+}
+
+function buildChatContext(deliveryId, deliveryData = {}, offerData = {}) {
+  const status = deliveryData.status || "Unknown";
+  const delayMinutes = Number(firstPresent(
+    deliveryData.delayMinutes,
+    deliveryData.current_traffic_delay,
+    0
+  ));
+  const normalizedDelay = Number.isFinite(delayMinutes) ? delayMinutes : 0;
+  const trafficDurationSeconds = Number(deliveryData.trafficDurationSeconds) || 0;
+  const hasActiveOffer = ["pending", "accepted"].includes(offerData.status);
+  const hasRerouteContext = [
+    "offer_pending",
+    "rerouted_to_node",
+    "delivered_to_node",
+    "completed",
+  ].includes(status) || hasActiveOffer;
+  const voucherAmount = firstPresent(
+    deliveryData.voucherAmount,
+    deliveryData.cashbackAmount,
+    offerData.voucherAmount,
+    offerData.cashback_amount
+  );
+  const selectedNodeName = hasRerouteContext ? firstPresent(
+    deliveryData.selectedNodeName,
+    offerData.nodeName,
+    deliveryData.nodeName
+  ) : null;
+  const distanceText = hasRerouteContext ? formatDistance(firstPresent(
+    offerData.distanceMeters,
+    deliveryData.distanceMeters
+  )) : null;
+
+  return {
+    deliveryId,
+    status,
+    hasRerouteContext,
+    receiverName: firstPresent(deliveryData.receiverName, "Customer"),
+    receiverAddress: firstPresent(deliveryData.receiverAddress, deliveryData.address),
+    selectedNodeName,
+    selectedNodeId: hasRerouteContext ? firstPresent(deliveryData.selectedNodeId, offerData.nodeId) : null,
+    distanceText,
+    delayMinutes: normalizedDelay,
+    trafficStatus: normalizedDelay > 0
+      ? firstPresent(deliveryData.trafficStatus, deliveryData.trafficMode, "terdeteksi delay")
+      : "normal",
+    voucherText: hasRerouteContext ? formatRupiah(voucherAmount) : null,
+    voucherCode: hasRerouteContext ? firstPresent(deliveryData.voucherCode, offerData.voucherCode) : null,
+    offerStatus: hasActiveOffer ? offerData.status : null,
+    offerReason: hasActiveOffer ? offerData.reason : null,
+    etaText: firstPresent(
+      deliveryData.estimatedArrivalLabel,
+      deliveryData.estimatedArrivalText,
+      deliveryData.estimatedArrival,
+      deliveryData.eta,
+      deliveryData.etaText
+    ) || (trafficDurationSeconds > 0
+      ? `${formatWibTime(new Date(Date.now() + trafficDurationSeconds * 1000))} WIB`
+      : normalizedDelay > 0
+      ? `bertambah sekitar ${normalizedDelay} menit`
+      : "sesuai jadwal, jam spesifik belum tercatat"),
+    etaDestinationType: firstPresent(deliveryData.etaDestinationType, hasRerouteContext ? "node" : "receiver"),
+    etaSource: deliveryData.etaSource,
+    etaConfidence: deliveryData.etaConfidence,
+    otpCode: deliveryData.otpCode,
+  };
+}
+
+function buildRuleBasedChatResponse(context, userMessage) {
+  const lowerMessage = String(userMessage).toLowerCase();
+  const asksReroute = /(kemana|ke mana|dialihkan|alih|rute|mitra|node|lokasi)/i.test(lowerMessage);
+  const asksVoucher = /(voucher|kompensasi|cashback|diskon)/i.test(lowerMessage);
+  const asksEta = /(estimasi|eta|tiba|sampai|kapan)/i.test(lowerMessage);
+  const delayText = context.delayMinutes > 0
+    ? `estimasi keterlambatan sekitar ${context.delayMinutes} menit`
+    : "tidak ada keterlambatan besar yang tercatat saat ini";
+  const nodeText = context.selectedNodeName
+    ? `${context.selectedNodeName}${context.distanceText ? ` (${context.distanceText} dari tujuan)` : ""}`
+    : "mitra FlexiNode terdekat, tetapi nama node belum tercatat di sistem";
+  const voucherText = context.voucherText
+    ? `Kompensasi voucher ${context.voucherText}${context.voucherCode ? ` dengan kode ${context.voucherCode}` : ""} sudah terkait dengan pengalihan ini.`
+    : "Detail voucher belum tercatat, jadi silakan cek notifikasi saat offer selesai diproses.";
+
+  if (asksVoucher) {
+    if (!context.hasRerouteContext) {
+      return `Belum ada voucher untuk paket ${context.deliveryId} karena paket belum dialihkan ke mitra. Status paket masih on delivery dan kondisi trafik tercatat normal.`;
+    }
+    return `${voucherText} Paket ${context.deliveryId} ${context.selectedNodeName ? `dialihkan ke ${nodeText}` : "sedang diproses untuk rute alternatif"} karena ${delayText}.`;
+  }
+
+  if (asksEta) {
+    const destinationText = context.hasRerouteContext && context.selectedNodeName
+      ? `ke ${nodeText}`
+      : "ke alamat penerima";
+    return `Estimasi tiba paket ${context.deliveryId} ${destinationText} adalah ${context.etaText}. ${context.delayMinutes > 0 ? `Perhitungan ini sudah memperhitungkan ${delayText}.` : "Kondisi trafik saat ini normal."}`;
+  }
+
+  if (asksReroute && !context.hasRerouteContext) {
+    return `Paket ${context.deliveryId} belum dialihkan ke mitra. Statusnya masih on delivery menuju alamat penerima, kondisi trafik tercatat normal, dan ${delayText}.`;
+  }
+
+  if (asksReroute || context.status === "rerouted_to_node") {
+    return `Paket ${context.deliveryId} dialihkan ke ${nodeText}. Pengalihan dilakukan karena rute awal mengalami kemacetan berat dengan ${delayText}. ${voucherText} Anda tidak perlu melakukan apa pun; driver akan melanjutkan pengiriman melalui rute alternatif.`;
+  }
+
+  return `Status paket ${context.deliveryId} saat ini adalah ${context.status}. ${context.selectedNodeName ? `Tujuan aktifnya ${nodeText}. ` : ""}${context.delayMinutes > 0 ? `Ada ${delayText}. ` : ""}${voucherText}`;
+}
+
 // Endpoint untuk AI Chatbot
 app.post('/chat', async (req, res) => {
   const { deliveryId, receiverId, message } = req.body;
@@ -378,6 +561,15 @@ app.post('/chat', async (req, res) => {
     const deliveryDoc = await db.collection('deliveries').doc(deliveryId).get();
     const deliveryData = deliveryDoc.exists ? deliveryDoc.data() : null;
 
+    const offersSnapshot = await db.collection('offers')
+      .where('deliveryId', '==', deliveryId)
+      .get();
+    const offerDocs = offersSnapshot.docs.map((doc) => doc.data());
+    const offerData = offerDocs.find((offer) => offer.status === "accepted")
+      || offerDocs.find((offer) => offer.status === "pending")
+      || null;
+    const chatContext = buildChatContext(deliveryId, deliveryData || {}, offerData || {});
+
     // 3. Ambil riwayat percakapan sebelumnya (batas 5 terakhir agar hemat token)
     const historySnapshot = await db.collection('AI_message')
       .where('deliveryId', '==', deliveryId)
@@ -392,20 +584,50 @@ app.post('/chat', async (req, res) => {
     });
 
     // 4. Siapkan Prompt untuk Gemini
-    const systemPrompt = `Anda adalah asisten AI dari FlexiNode, layanan logistik cerdas. Tugas Anda menjawab pertanyaan pelanggan dengan ramah, singkat, dan solutif.
+    const systemPrompt = `Anda adalah asisten AI FlexiNode untuk pelanggan last-mile delivery.
+Jawab dalam Bahasa Indonesia yang ramah, jelas, dan informatif.
+Aturan respons:
+- Jawab inti pertanyaan di kalimat pertama.
+- Jika pelanggan bertanya paket dialihkan ke mana, sebutkan nama mitra/node tujuan terlebih dahulu.
+- Sertakan alasan, estimasi dampak, kompensasi voucher, dan aksi berikutnya jika datanya tersedia.
+- Jangan mengarang alamat, ETA jam spesifik, nama driver, OTP, atau kode voucher. Jika belum ada data, katakan belum tercatat.
+- Hindari status teknis mentah seperti "rerouted_to_node" kecuali pelanggan memintanya.
+- Jika Status Teknis adalah on_delivery, Delay Kemacetan 0, dan Reroute Aktif adalah tidak, jangan menyebut ada kemacetan atau paket dialihkan.
+- Buat respons singkat: 2-4 kalimat atau bullet pendek bila perlu.
+
 Data Paket Saat Ini:
-- Status: ${deliveryData?.status || 'Unknown'}
-- Delay Kemacetan: ${deliveryData?.delayMinutes || 0} menit
-- Tujuan: ${deliveryData?.receiverName || 'Unknown'}
+- ID Paket: ${chatContext.deliveryId}
+- Status Teknis: ${chatContext.status}
+- Reroute Aktif: ${chatContext.hasRerouteContext ? "ya" : "tidak"}
+- Penerima: ${chatContext.receiverName}
+- Alamat Penerima: ${chatContext.receiverAddress || "belum tercatat"}
+- Node/Mitra Tujuan Reroute: ${chatContext.selectedNodeName || "belum tercatat"}
+- Jarak Node dari Tujuan: ${chatContext.distanceText || "belum tercatat"}
+- Delay Kemacetan: ${chatContext.delayMinutes} menit
+- Kondisi Trafik: ${chatContext.trafficStatus || "belum tercatat"}
+- Estimasi Tiba: ${chatContext.etaText}
+- Tujuan ETA: ${chatContext.etaDestinationType}
+- Sumber ETA: ${chatContext.etaSource || "belum tercatat"}
+- Confidence ETA: ${chatContext.etaConfidence || "belum tercatat"}
+- Voucher: ${chatContext.voucherText || "belum tercatat"}
+- Kode Voucher: ${chatContext.voucherCode || "belum tercatat"}
+- Status Offer: ${chatContext.offerStatus || "belum tercatat"}
+- Alasan Offer: ${chatContext.offerReason || "belum tercatat"}
 
 Riwayat Chat Terbaru:
 ${chatHistory}
 User: ${message}
 AI:`;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-    const result = await model.generateContent(systemPrompt);
-    const aiResponse = result.response.text();
+    let aiResponse;
+    try {
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const result = await model.generateContent(systemPrompt);
+      aiResponse = result.response.text();
+    } catch (aiError) {
+      console.error("Gemini chat fallback used:", aiError);
+      aiResponse = buildRuleBasedChatResponse(chatContext, message);
+    }
 
     // 5. Simpan balasan AI ke database
     await db.collection('AI_message').add({

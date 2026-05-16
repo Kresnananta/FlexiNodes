@@ -255,75 +255,195 @@ class _ChatInputPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final quickReplies = _quickRepliesFor(store);
+
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       decoration: const BoxDecoration(
         color: FlexiColors.surface,
         border: Border(top: BorderSide(color: FlexiColors.border)),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: TextField(
-              controller: controller,
-              enabled: !store.isChatLoading,
-              decoration: InputDecoration(
-                hintText: 'Tulis pesan untuk AI...',
-                hintStyle: const TextStyle(
-                  color: FlexiColors.muted,
-                  fontSize: 14,
+          _QuickReplyStrip(
+            replies: quickReplies,
+            enabled: !store.isChatLoading,
+            onSelected: (reply) {
+              controller.clear();
+              store.sendChatMessage(reply);
+            },
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  enabled: !store.isChatLoading,
+                  decoration: InputDecoration(
+                    hintText: 'Tulis pesan untuk AI...',
+                    hintStyle: const TextStyle(
+                      color: FlexiColors.muted,
+                      fontSize: 14,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: const BorderSide(color: FlexiColors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: const BorderSide(color: FlexiColors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: const BorderSide(color: FlexiColors.primary),
+                    ),
+                    filled: true,
+                    fillColor: FlexiColors.bg,
+                  ),
+                  onSubmitted: (val) {
+                    if (val.trim().isNotEmpty) {
+                      store.sendChatMessage(val);
+                      controller.clear();
+                    }
+                  },
                 ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: const BorderSide(color: FlexiColors.border),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: const BorderSide(color: FlexiColors.border),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: const BorderSide(color: FlexiColors.primary),
-                ),
-                filled: true,
-                fillColor: FlexiColors.bg,
               ),
-              onSubmitted: (val) {
-                if (val.trim().isNotEmpty) {
-                  store.sendChatMessage(val);
-                  controller.clear();
-                }
-              },
+              const SizedBox(width: 8),
+              store.isChatLoading
+                  ? const Padding(
+                      padding: EdgeInsets.all(12.0),
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2.5),
+                      ),
+                    )
+                  : CircleAvatar(
+                      backgroundColor: FlexiColors.primary,
+                      radius: 22,
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.send,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        onPressed: () {
+                          if (controller.text.trim().isNotEmpty) {
+                            store.sendChatMessage(controller.text);
+                            controller.clear();
+                          }
+                        },
+                      ),
+                    ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<String> _quickRepliesFor(DemoDeliveryStore store) {
+    if (store.shouldRouteToNode) {
+      return const [
+        'Paket saya dialihkan ke mana?',
+        'Voucher saya berapa?',
+        'Apa yang harus saya lakukan?',
+        'Kapan paket tiba?',
+      ];
+    }
+
+    if (store.offerCreated || store.delayMinutes > 0) {
+      return const [
+        'Apa tawaran FlexiNode?',
+        'Mitra terdekat di mana?',
+        'Voucher saya berapa?',
+        'Tetap bisa kirim ke rumah?',
+      ];
+    }
+
+    return const [
+      'Status paket saya?',
+      'Estimasi tiba kapan?',
+      'Ada kendala pengiriman?',
+    ];
+  }
+}
+
+class _QuickReplyStrip extends StatelessWidget {
+  const _QuickReplyStrip({
+    required this.replies,
+    required this.enabled,
+    required this.onSelected,
+  });
+
+  final List<String> replies;
+  final bool enabled;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 38,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: replies.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final reply = replies[index];
+          return _QuickReplyChip(
+            label: reply,
+            enabled: enabled,
+            onTap: () => onSelected(reply),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _QuickReplyChip extends StatelessWidget {
+  const _QuickReplyChip({
+    required this.label,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: enabled ? FlexiColors.bg : FlexiColors.border,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 230),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: FlexiColors.border),
+          ),
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: enabled ? FlexiColors.text : FlexiColors.muted,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(width: 8),
-          store.isChatLoading
-              ? const Padding(
-                  padding: EdgeInsets.all(12.0),
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2.5),
-                  ),
-                )
-              : CircleAvatar(
-                  backgroundColor: FlexiColors.primary,
-                  radius: 22,
-                  child: IconButton(
-                    icon: const Icon(Icons.send, color: Colors.white, size: 20),
-                    onPressed: () {
-                      if (controller.text.trim().isNotEmpty) {
-                        store.sendChatMessage(controller.text);
-                        controller.clear();
-                      }
-                    },
-                  ),
-                ),
-        ],
+        ),
       ),
     );
   }

@@ -174,6 +174,13 @@ class DemoDeliveryStore extends ChangeNotifier {
 
   String trafficStatus = 'normal';
   int delayMinutes = 0;
+  int trafficDurationSeconds = 0;
+  int trafficStaticDurationSeconds = 0;
+  DateTime? estimatedArrivalAt;
+  String estimatedArrivalLabel = 'Sesuai jadwal';
+  String etaDestinationType = 'receiver';
+  String etaSource = 'fallback';
+  String etaConfidence = 'low';
   bool offerCreated = false;
   bool offerAccepted = false;
   bool dropoffConfirmed = false;
@@ -215,13 +222,15 @@ class DemoDeliveryStore extends ChangeNotifier {
   static const String _googleRoutesApiKey = String.fromEnvironment(
     'GOOGLE_ROUTES_API_KEY',
   );
-  static const String _webIndexMapsApiKey =
-      'AIzaSyCBA6L9i7NiCVCcEECuwYKd8ej6xQni8DY';
 
   String get _geocodingApiKey {
     if (_googleMapsApiKey.isNotEmpty) return _googleMapsApiKey;
+    return '';
+  }
+
+  String get _routesApiKey {
     if (_googleRoutesApiKey.isNotEmpty) return _googleRoutesApiKey;
-    return _webIndexMapsApiKey;
+    return '';
   }
 
   // Online Cloud Function / Cloud Run API
@@ -306,6 +315,18 @@ class DemoDeliveryStore extends ChangeNotifier {
             delayMinutes = _readInt(
               data['delayMinutes'] ?? data['current_traffic_delay'],
             );
+            trafficDurationSeconds = _readInt(data['trafficDurationSeconds']);
+            trafficStaticDurationSeconds = _readInt(
+              data['trafficStaticDurationSeconds'],
+            );
+            estimatedArrivalAt = _readDateTime(data['estimatedArrivalAt']);
+            estimatedArrivalLabel =
+                data['estimatedArrivalLabel']?.toString() ??
+                _fallbackEtaLabel();
+            etaDestinationType =
+                data['etaDestinationType']?.toString() ?? etaDestinationType;
+            etaSource = data['etaSource']?.toString() ?? etaSource;
+            etaConfidence = data['etaConfidence']?.toString() ?? etaConfidence;
             trafficStatus = delayMinutes > 15 ? 'heavy' : 'normal';
 
             final String rId = data['receiverId'] as String? ?? '';
@@ -659,19 +680,30 @@ class DemoDeliveryStore extends ChangeNotifier {
       return 'Paket tiba di $nodeName dan menunggu diambil.';
     }
     if (shouldRouteToNode) {
-      return 'Courier is heading to $nodeName.';
+      return 'Courier is heading to $nodeName. ETA $estimatedArrivalText.';
     }
     if (delayMinutes > 0) {
-      return 'Estimated arrival delayed by ~$delayMinutes mins.';
+      return 'Estimated arrival $estimatedArrivalText with ~$delayMinutes mins delay.';
     }
-    return 'Courier $driverName is moving to your address.';
+    return 'Courier $driverName is moving to your address. ETA $estimatedArrivalText.';
   }
 
   String get estimatedArrivalText {
-    if (status == DemoDeliveryStatus.completed) return 'Done';
-    if (status == DemoDeliveryStatus.deliveredToNode) return 'Ready';
-    if (delayMinutes > 0) return '+$delayMinutes min';
-    return 'On time';
+    if (status == DemoDeliveryStatus.completed) return 'Selesai';
+    if (status == DemoDeliveryStatus.deliveredToNode) return 'Siap diambil';
+    final label = estimatedArrivalLabel.trim();
+    if (label.isNotEmpty) return label;
+    return _fallbackEtaLabel();
+  }
+
+  String _fallbackEtaLabel() {
+    if (status == DemoDeliveryStatus.completed) return 'Selesai';
+    if (status == DemoDeliveryStatus.deliveredToNode) return 'Siap diambil';
+    if (trafficDurationSeconds > 0) {
+      return '${_formatWib(DateTime.now().add(Duration(seconds: trafficDurationSeconds)))} WIB';
+    }
+    if (delayMinutes > 0) return '+$delayMinutes menit';
+    return 'Sesuai jadwal';
   }
 
   String get statusText {
@@ -774,7 +806,7 @@ class DemoDeliveryStore extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final result = await RoutesApiService(apiKey: _geocodingApiKey)
+      final result = await RoutesApiService(apiKey: _routesApiKey)
           .getDrivingRoute(
             origin: LatLng(driverLatitude, driverLongitude),
             destination: LatLng(receiverLatitude, receiverLongitude),
@@ -784,6 +816,19 @@ class DemoDeliveryStore extends ChangeNotifier {
 
       delayMinutes = realtimeDelay;
       trafficStatus = realtimeDelay > 15 ? 'heavy' : 'normal';
+      trafficDurationSeconds = result.durationSeconds;
+      trafficStaticDurationSeconds = result.staticDurationSeconds;
+      final etaUpdate = _etaUpdateMap(
+        durationSeconds: result.durationSeconds,
+        destinationType: 'receiver',
+        source: 'google_routes',
+        confidence: 'high',
+      );
+      estimatedArrivalAt = _readDateTime(etaUpdate['estimatedArrivalAt']);
+      estimatedArrivalLabel = etaUpdate['estimatedArrivalLabel'].toString();
+      etaDestinationType = 'receiver';
+      etaSource = 'google_routes';
+      etaConfidence = 'high';
 
       await FirebaseFirestore.instance
           .collection('deliveries')
@@ -796,6 +841,7 @@ class DemoDeliveryStore extends ChangeNotifier {
             'trafficDurationSeconds': result.durationSeconds,
             'trafficStaticDurationSeconds': result.staticDurationSeconds,
             'trafficCheckedAt': FieldValue.serverTimestamp(),
+            ...etaUpdate,
             'updatedAt': FieldValue.serverTimestamp(),
           });
 
@@ -882,6 +928,49 @@ class DemoDeliveryStore extends ChangeNotifier {
     final selected = selectedNode;
     selectPickupNode(selected);
 
+    final hasTrafficDuration = trafficDurationSeconds > 0;
+    final fallbackNodeDurationSeconds = hasTrafficDuration
+        ? trafficDurationSeconds
+        : 15 * 60;
+    if (!hasTrafficDuration) {
+      trafficDurationSeconds = fallbackNodeDurationSeconds;
+      trafficStaticDurationSeconds = fallbackNodeDurationSeconds;
+    }
+
+    var nodeEtaUpdate = _etaUpdateMap(
+      durationSeconds: fallbackNodeDurationSeconds,
+      destinationType: 'node',
+      source: hasTrafficDuration ? 'traffic_fallback' : 'fallback',
+      confidence: hasTrafficDuration ? 'medium' : 'low',
+    );
+
+    try {
+      final routeToNode = await RoutesApiService(apiKey: _routesApiKey)
+          .getDrivingRoute(
+            origin: LatLng(driverLatitude, driverLongitude),
+            destination: LatLng(nodeLatitude, nodeLongitude),
+            routingPreference: 'TRAFFIC_AWARE',
+          );
+      trafficDurationSeconds = routeToNode.durationSeconds;
+      trafficStaticDurationSeconds = routeToNode.staticDurationSeconds;
+      delayMinutes = routeToNode.delayMinutes;
+      trafficStatus = delayMinutes > 15 ? 'heavy' : 'normal';
+      nodeEtaUpdate = _etaUpdateMap(
+        durationSeconds: routeToNode.durationSeconds,
+        destinationType: 'node',
+        source: 'google_routes',
+        confidence: 'high',
+      );
+    } catch (e) {
+      debugPrint('Error calculating node ETA: $e');
+    }
+
+    estimatedArrivalAt = _readDateTime(nodeEtaUpdate['estimatedArrivalAt']);
+    estimatedArrivalLabel = nodeEtaUpdate['estimatedArrivalLabel'].toString();
+    etaDestinationType = 'node';
+    etaSource = nodeEtaUpdate['etaSource'].toString();
+    etaConfidence = nodeEtaUpdate['etaConfidence'].toString();
+
     final voucherType = _voucherTypeForAmount(voucherAmount);
     final update = <String, dynamic>{
       'nodeId': nodeId,
@@ -905,6 +994,11 @@ class DemoDeliveryStore extends ChangeNotifier {
           'selectedNodeLng': nodeLongitude,
           'voucherAmount': voucherAmount,
           'cashbackAmount': voucherAmount,
+          'delayMinutes': delayMinutes,
+          'current_traffic_delay': delayMinutes,
+          'trafficDurationSeconds': trafficDurationSeconds,
+          'trafficStaticDurationSeconds': trafficStaticDurationSeconds,
+          ...nodeEtaUpdate,
           'updatedAt': FieldValue.serverTimestamp(),
         });
 
@@ -937,6 +1031,11 @@ class DemoDeliveryStore extends ChangeNotifier {
             'selectedNodeName': nodeName,
             'selectedNodeLat': nodeLatitude,
             'selectedNodeLng': nodeLongitude,
+            'estimatedArrivalAt': null,
+            'estimatedArrivalLabel': 'Siap diambil',
+            'etaDestinationType': 'node',
+            'etaSource': 'handover',
+            'etaConfidence': 'high',
             'mitraReceivedAt': FieldValue.serverTimestamp(),
             'mitraReceiveSource': source,
             'updatedAt': FieldValue.serverTimestamp(),
@@ -955,6 +1054,11 @@ class DemoDeliveryStore extends ChangeNotifier {
       offerAccepted = true;
       offerCreated = true;
       homeDeliverySelected = false;
+      estimatedArrivalAt = null;
+      estimatedArrivalLabel = 'Siap diambil';
+      etaDestinationType = 'node';
+      etaSource = 'handover';
+      etaConfidence = 'high';
 
       _addLocalAiMessage(
         sender: 'Mitra',
@@ -991,6 +1095,11 @@ class DemoDeliveryStore extends ChangeNotifier {
           .doc(_deliveryId)
           .update({
             'status': 'completed',
+            'estimatedArrivalAt': null,
+            'estimatedArrivalLabel': 'Selesai',
+            'etaDestinationType': 'completed',
+            'etaSource': 'receiver_pickup',
+            'etaConfidence': 'high',
             'receiverPickedUpAt': FieldValue.serverTimestamp(),
             'receiverPickupSource': source,
             'updatedAt': FieldValue.serverTimestamp(),
@@ -1010,6 +1119,11 @@ class DemoDeliveryStore extends ChangeNotifier {
       offerAccepted = true;
       offerCreated = true;
       homeDeliverySelected = false;
+      estimatedArrivalAt = null;
+      estimatedArrivalLabel = 'Selesai';
+      etaDestinationType = 'completed';
+      etaSource = 'receiver_pickup';
+      etaConfidence = 'high';
 
       _addLocalAiMessage(
         sender: 'Mitra',
@@ -1111,29 +1225,111 @@ class DemoDeliveryStore extends ChangeNotifier {
   }
 
   Future<void> sendChatMessage(String message) async {
+    final trimmedMessage = message.trim();
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
-    if (uid == null || message.trim().isEmpty) return;
+    if (trimmedMessage.isEmpty) return;
+
+    if (uid == null) {
+      _addLocalAiMessage(
+        sender: 'User',
+        type: 'user',
+        message: trimmedMessage,
+        shouldNotify: false,
+      );
+      _addLocalAiMessage(
+        sender: 'Flexi AI',
+        type: 'ai_chat',
+        message: _buildInformativeChatResponse(trimmedMessage),
+      );
+      return;
+    }
 
     isChatLoading = true;
     notifyListeners();
 
     try {
-      await http.post(
+      final response = await http.post(
         Uri.parse('$_apiUrl/chat'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'deliveryId': _deliveryId,
           'receiverId': uid,
-          'message': message,
+          'message': trimmedMessage,
         }),
       );
+
+      if (response.statusCode >= 400) {
+        throw Exception('Chat API returned ${response.statusCode}');
+      }
     } catch (e) {
       debugPrint('Error sending chat: $e');
+      _addLocalAiMessage(
+        sender: 'User',
+        type: 'user',
+        message: trimmedMessage,
+        shouldNotify: false,
+      );
+      _addLocalAiMessage(
+        sender: 'Flexi AI',
+        type: 'ai_chat',
+        message: _buildInformativeChatResponse(trimmedMessage),
+        shouldNotify: false,
+      );
     } finally {
       isChatLoading = false;
       notifyListeners();
     }
+  }
+
+  String _buildInformativeChatResponse(String userMessage) {
+    final lowerMessage = userMessage.toLowerCase();
+    final asksReroute =
+        lowerMessage.contains('kemana') ||
+        lowerMessage.contains('ke mana') ||
+        lowerMessage.contains('dialih') ||
+        lowerMessage.contains('rute') ||
+        lowerMessage.contains('mitra') ||
+        lowerMessage.contains('node') ||
+        lowerMessage.contains('lokasi');
+    final asksVoucher =
+        lowerMessage.contains('voucher') ||
+        lowerMessage.contains('kompensasi') ||
+        lowerMessage.contains('cashback') ||
+        lowerMessage.contains('diskon');
+    final asksEta =
+        lowerMessage.contains('estimasi') ||
+        lowerMessage.contains('eta') ||
+        lowerMessage.contains('tiba') ||
+        lowerMessage.contains('sampai') ||
+        lowerMessage.contains('kapan');
+    final delayText = delayMinutes > 0
+        ? 'estimasi keterlambatan sekitar $delayMinutes menit'
+        : 'tidak ada keterlambatan besar yang tercatat saat ini';
+    final destinationText = shouldRouteToNode || offerCreated
+        ? '$nodeName, sekitar $nodeDistance dari alamat penerima'
+        : 'alamat penerima';
+    final voucherText = voucherEligible || offerCreated
+        ? 'Voucher kompensasi $formattedVoucher ${voucherCode == null ? 'akan tersedia di notifikasi.' : 'dengan kode $voucherCode sudah tersedia.'}'
+        : 'Voucher belum diterbitkan karena belum ada pengalihan yang disetujui.';
+
+    if (asksVoucher) {
+      return '$voucherText Paket $orderId ${shouldRouteToNode ? 'sudah dialihkan ke $destinationText' : 'masih dalam proses pengiriman'} karena $delayText.';
+    }
+
+    if (asksEta) {
+      return 'Estimasi tiba paket $orderId ${shouldRouteToNode ? 'di $nodeName' : 'di alamat penerima'} adalah $estimatedArrivalText. ${delayMinutes > 0 ? 'Perhitungan ini sudah memperhitungkan $delayText.' : 'Kondisi trafik saat ini normal.'}';
+    }
+
+    if (asksReroute && !shouldRouteToNode && !offerCreated) {
+      return 'Paket $orderId belum dialihkan ke mitra. Tujuan aktifnya masih alamat penerima, dan $delayText. $voucherText';
+    }
+
+    if (asksReroute || shouldRouteToNode) {
+      return 'Paket $orderId dialihkan ke $destinationText. Pengalihan dilakukan karena rute awal mengalami kemacetan berat dengan $delayText. $voucherText Anda tidak perlu melakukan apa pun; $driverFirstName akan melanjutkan pengiriman melalui rute alternatif.';
+    }
+
+    return 'Status paket $orderId saat ini: $activeDeliveryStatusLabel. Tujuan aktifnya $destinationText, dengan $delayText. $voucherText';
   }
 
   Future<void> resetDemo() async {
@@ -1150,6 +1346,13 @@ class DemoDeliveryStore extends ChangeNotifier {
             'status': 'on_delivery',
             'delayMinutes': 0,
             'current_traffic_delay': 0,
+            'trafficDurationSeconds': 0,
+            'trafficStaticDurationSeconds': 0,
+            'estimatedArrivalAt': null,
+            'estimatedArrivalLabel': 'Sesuai jadwal',
+            'etaDestinationType': 'receiver',
+            'etaSource': 'demo_reset',
+            'etaConfidence': 'low',
             'trafficMode': 'demo_reset',
             'homeDeliverySelected': false,
             'selectedNodeId': defaultNode.id,
@@ -1202,6 +1405,15 @@ class DemoDeliveryStore extends ChangeNotifier {
     status = DemoDeliveryStatus.offerPending;
     trafficStatus = 'heavy';
     delayMinutes = 20;
+    trafficStaticDurationSeconds = 25 * 60;
+    trafficDurationSeconds = trafficStaticDurationSeconds + delayMinutes * 60;
+    estimatedArrivalAt = DateTime.now().add(
+      Duration(seconds: trafficDurationSeconds),
+    );
+    estimatedArrivalLabel = '${_formatWib(estimatedArrivalAt!)} WIB';
+    etaDestinationType = 'receiver';
+    etaSource = 'demo';
+    etaConfidence = 'medium';
     offerCreated = true;
     offerAccepted = false;
     dropoffConfirmed = false;
@@ -1218,25 +1430,26 @@ class DemoDeliveryStore extends ChangeNotifier {
         const AiChatMessage(
           sender: 'Flexi AI',
           type: 'observe',
-          message: 'Heavy traffic detected near receiver location.',
+          message:
+              'Saya mendeteksi kemacetan berat di sekitar alamat penerima.',
         ),
         const AiChatMessage(
           sender: 'Flexi AI',
           type: 'reason',
           message:
-              'Current delay estimate is 20 minutes. Offering a pickup voucher is cheaper than forcing the courier through traffic.',
+              'Estimasi keterlambatan saat ini sekitar 20 menit, jadi opsi pickup node bisa memangkas waktu tunggu.',
         ),
         AiChatMessage(
           sender: 'Flexi AI',
           type: 'select_node',
           message:
-              'Recommended node found: $nodeName, $nodeDistance from receiver, with $nodeCapacity.',
+              'Rekomendasi mitra: $nodeName, sekitar $nodeDistance dari alamat penerima, dengan kapasitas $nodeCapacity.',
         ),
         const AiChatMessage(
           sender: 'Flexi AI',
           type: 'action',
           message:
-              'Pickup offer sent to receiver. Waiting for receiver approval.',
+              'Penawaran pickup node sudah dikirim ke penerima. Saya menunggu persetujuan sebelum rute driver diubah.',
         ),
       ]);
 
@@ -1245,6 +1458,14 @@ class DemoDeliveryStore extends ChangeNotifier {
 
   void _localAcceptOffer() {
     status = DemoDeliveryStatus.reroutedToNode;
+    final fallbackNodeEta = 15 * 60;
+    trafficDurationSeconds = fallbackNodeEta;
+    trafficStaticDurationSeconds = fallbackNodeEta;
+    estimatedArrivalAt = DateTime.now().add(Duration(seconds: fallbackNodeEta));
+    estimatedArrivalLabel = '${_formatWib(estimatedArrivalAt!)} WIB';
+    etaDestinationType = 'node';
+    etaSource = 'fallback';
+    etaConfidence = 'low';
     offerCreated = true;
     offerAccepted = true;
     homeDeliverySelected = false;
@@ -1260,13 +1481,13 @@ class DemoDeliveryStore extends ChangeNotifier {
       AiChatMessage(
         sender: 'System',
         type: 'system',
-        message: 'Delivery destination updated to $nodeName.',
+        message: 'Tujuan pengiriman diperbarui ke $nodeName.',
       ),
       AiChatMessage(
         sender: 'Flexi AI',
         type: 'action',
         message:
-            'Driver route has been updated. Pickup voucher $formattedVoucher will be issued.',
+            'Rute driver sudah diperbarui ke $nodeName. Voucher pickup $formattedVoucher akan diterbitkan dan bisa dicek di notifikasi.',
       ),
     ]);
 
@@ -1281,6 +1502,13 @@ class DemoDeliveryStore extends ChangeNotifier {
     userSelectedPickupNode = false;
     trafficStatus = 'normal';
     delayMinutes = 0;
+    trafficDurationSeconds = 0;
+    trafficStaticDurationSeconds = 0;
+    estimatedArrivalAt = null;
+    estimatedArrivalLabel = 'Sesuai jadwal';
+    etaDestinationType = 'receiver';
+    etaSource = 'demo_reset';
+    etaConfidence = 'low';
     offerCreated = false;
     offerAccepted = false;
     dropoffConfirmed = false;
@@ -1529,6 +1757,39 @@ class DemoDeliveryStore extends ChangeNotifier {
       if (iso is String) return DateTime.tryParse(iso);
     }
     return null;
+  }
+
+  static String _formatWib(DateTime value) {
+    final wib = value.toUtc().add(const Duration(hours: 7));
+    final hour = wib.hour.toString().padLeft(2, '0');
+    final minute = wib.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
+  }
+
+  static Map<String, dynamic> _etaUpdateMap({
+    required int durationSeconds,
+    required String destinationType,
+    required String source,
+    required String confidence,
+  }) {
+    if (durationSeconds <= 0) {
+      return {
+        'estimatedArrivalAt': null,
+        'estimatedArrivalLabel': 'Sesuai jadwal',
+        'etaDestinationType': destinationType,
+        'etaSource': source,
+        'etaConfidence': confidence,
+      };
+    }
+
+    final eta = DateTime.now().add(Duration(seconds: durationSeconds));
+    return {
+      'estimatedArrivalAt': Timestamp.fromDate(eta),
+      'estimatedArrivalLabel': '${_formatWib(eta)} WIB',
+      'etaDestinationType': destinationType,
+      'etaSource': source,
+      'etaConfidence': confidence,
+    };
   }
 
   static DemoDeliveryStatus _statusFromText(String value) {
