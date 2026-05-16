@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "807475730103",
+    "project_id": "flexi-nodes",
+    "storage_bucket": "flexi-nodes.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:807475730103:android:df07fbc584d91045ae5f32",
+        "android_client_info": {
+          "package_name": "com.example.flexi_node"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAbcc5vHzA1AyXk7zzyy-6bXlfFr7sqHsc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -24,24 +24,50 @@ import 'screens/receiver_qr_page.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // REAL FIREBASE CONFIG
+  // Use this for deployed Firebase / real phone testing.
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // FIREBASE EMULATOR CONFIG
+  // Only use this if you are testing with Firebase Emulator locally.
+  //
+  // 1. Uncomment this import if needed:
+  // import 'package:cloud_firestore/cloud_firestore.dart';
+  //
+  // 2. Uncomment this import if needed:
+  // import 'package:flutter/foundation.dart';
+  //
+  // 3. Then uncomment this block:
+  //
+  // const String host = kIsWeb ? '127.0.0.1' : '10.0.2.2';
+  //
+  // FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);
+  // await FirebaseAuth.instance.useAuthEmulator(host, 9099);
+  //
+  // Note:
+  // - 10.0.2.2 works for Android Emulator.
+  // - For a real phone, use your laptop Wi-Fi IP instead, for example:
+  //   const String host = '192.168.1.10';
+  // - Start emulator with:
+  //   firebase emulators:start --host 0.0.0.0
+
   // Konfigurasi Firebase Asli untuk flexi-nodes
-  const firebaseOptions = FirebaseOptions(
-    apiKey: 'AIzaSyDFpk4Rffw3wNnuw--XRw_FeRnh-Z7Y0vM',
-    appId: '1:807475730103:web:0c6367e7613e4283ae5f32',
-    messagingSenderId: '807475730103',
-    projectId: 'flexi-nodes',
-    authDomain: 'flexi-nodes.firebaseapp.com',
-    storageBucket: 'flexi-nodes.firebasestorage.app',
-    measurementId: 'G-V06FPKTNKV',
-  );
+  // const firebaseOptions = FirebaseOptions(
+  //   apiKey: 'AIzaSyDFpk4Rffw3wNnuw--XRw_FeRnh-Z7Y0vM',
+  //   appId: '1:807475730103:web:0c6367e7613e4283ae5f32',
+  //   messagingSenderId: '807475730103',
+  //   projectId: 'flexi-nodes',
+  //   authDomain: 'flexi-nodes.firebaseapp.com',
+  //   storageBucket: 'flexi-nodes.firebasestorage.app',
+  //   measurementId: 'G-V06FPKTNKV',
+  // );
 
-  await Firebase.initializeApp(options: firebaseOptions);
-
-  // Anonymous login for demo
+  // await Firebase.initializeApp(options: firebaseOptions);
   try {
     await FirebaseAuth.instance.signInAnonymously();
     debugPrint(
@@ -68,7 +94,6 @@ class FlexiNodesApp extends StatelessWidget {
       ),
       initialRoute: '/',
 
-      // Normal static routes
       routes: {
         '/': (context) => const LandingPage(),
         '/sign-in': (context) => const SignInPage(),
@@ -96,21 +121,19 @@ class FlexiNodesApp extends StatelessWidget {
         '/receiver-qr': (context) => const ReceiverQrPage(),
       },
 
-      // Dynamic routes that need arguments
       onGenerateRoute: (settings) {
-        // QR Scanner route
         if (settings.name == '/qr-scanner') {
           final args = settings.arguments as Map<String, dynamic>?;
 
           return MaterialPageRoute(
             builder: (context) => QrScannerPage(
-              expectedType: args?['expectedType'] as String?,
+              expectedType:
+                  args?['expectedType'] as String? ?? 'driver_dropoff',
               title: args?['title'] as String? ?? 'Scan QR',
             ),
           );
         }
 
-        // Real map routes
         if (settings.name == '/real-map' ||
             settings.name == '/real-delivery-map' ||
             settings.name == '/rerouted-navigation') {
