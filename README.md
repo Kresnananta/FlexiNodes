@@ -6,6 +6,11 @@ Demo web:
 
 - https://flexi-nodes.web.app
 
+## Anggota Tim
+
+- Anak Agung Ngurah Agung Kresna Ananta
+- Darren Dexter Thio
+
 ## Tujuan Program
 
 Program ini dibuat untuk mensimulasikan solusi logistik cerdas pada skenario pengiriman jarak akhir. Fokus utamanya adalah mengurangi dampak kemacetan terhadap kurir dan pelanggan dengan cara:
@@ -128,7 +133,23 @@ Buat file `backend/.env`:
 GEMINI_API_KEY=isi_gemini_api_key
 ```
 
-File `env.local.json`, `web/maps_config.js`, dan `backend/.env` tidak ikut di-commit ke Git.
+### 4. Firebase Android Config
+
+Untuk menjalankan aplikasi di Android, siapkan file Firebase native:
+
+```powershell
+Copy-Item android\app\google-services.example.json android\app\google-services.json
+```
+
+Kemudian isi file `android/app/google-services.json` dengan konfigurasi asli dari Firebase Console:
+
+1. Buka Firebase Console.
+2. Pilih project `flexi-nodes`.
+3. Buka Android app dengan package name `com.example.flexi_node`.
+4. Download `google-services.json`.
+5. Simpan file tersebut ke `frontend/flexi_node/android/app/google-services.json`.
+
+File `env.local.json`, `web/maps_config.js`, `android/app/google-services.json`, dan `backend/.env` tidak ikut di-commit ke Git.
 
 ## Cara Menjalankan Program
 
@@ -148,6 +169,28 @@ flutter run -d chrome --dart-define-from-file=frontend/flexi_node/env.local.json
 ```
 
 Catatan: setelah mengubah `env.local.json`, hentikan proses Flutter lalu jalankan ulang. Hot restart tidak cukup karena `--dart-define` dibaca saat compile.
+
+### Menjalankan Frontend Android
+
+Pastikan USB debugging aktif dan perangkat sudah muncul sebagai authorized:
+
+```powershell
+flutter devices
+```
+
+Untuk Google Maps native Android, set API key sebelum menjalankan app:
+
+```powershell
+$env:GOOGLE_MAPS_API_KEY="isi_key_maps_android"
+flutter run -d android --dart-define-from-file=env.local.json
+```
+
+Jika menggunakan Git Bash:
+
+```bash
+export GOOGLE_MAPS_API_KEY="isi_key_maps_android"
+flutter run -d android --dart-define-from-file=env.local.json
+```
 
 ### Menjalankan Backend Lokal
 
@@ -218,6 +261,7 @@ API key asli tidak ditulis langsung di source code. Untuk menjalankan program, k
 Google API key sebaiknya dibatasi dari Google Cloud Console:
 
 - Maps JavaScript API: batasi HTTP referrer ke domain localhost dan Firebase Hosting.
+- Maps SDK for Android: batasi ke Android app `com.example.flexi_node` dan SHA-1 debug/release yang digunakan.
 - Routes API: batasi penggunaan hanya ke Routes API.
 - Geocoding API: batasi penggunaan hanya ke Geocoding API.
 
