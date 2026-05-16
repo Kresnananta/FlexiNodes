@@ -12,7 +12,9 @@ class NearbyNodesPage extends StatelessWidget {
     return AnimatedBuilder(
       animation: demoDeliveryStore,
       builder: (context, _) {
-        final selectedNodeId = demoDeliveryStore.nodeId;
+        final store = demoDeliveryStore;
+        final selectedNodeId = store.nodeId;
+        final nodes = store.pickupNodes;
 
         return Scaffold(
           backgroundColor: FlexiColors.bg,
@@ -52,7 +54,7 @@ class NearbyNodesPage extends StatelessWidget {
                               ),
                               TextSpan(
                                 text:
-                                    '${demoDeliveryStore.nodeName} • ${demoDeliveryStore.nodeDistance}',
+                                    '${store.nodeName} - ${store.nodeDistance}',
                                 style: const TextStyle(
                                   color: FlexiColors.text,
                                   fontSize: 15,
@@ -64,7 +66,7 @@ class NearbyNodesPage extends StatelessWidget {
                         ),
                       ),
                       StatusPill(
-                        label: demoDeliveryStore.formattedVoucher,
+                        label: store.formattedVoucher,
                         color: FlexiColors.primary,
                         background: Colors.white,
                       ),
@@ -82,15 +84,26 @@ class NearbyNodesPage extends StatelessWidget {
                   style: TextStyle(color: FlexiColors.muted, fontSize: 13),
                 ),
                 const SizedBox(height: 14),
-                ...DemoDeliveryStore.availableNodes.map(
-                  (node) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _NodeCard(
-                      node: node,
-                      isSelected: selectedNodeId == node.id,
+                if (nodes.isEmpty)
+                  const FlexiCard(
+                    child: Text(
+                      'No pickup nodes are available from Firestore yet.',
+                      style: TextStyle(
+                        color: FlexiColors.muted,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  )
+                else
+                  ...nodes.map(
+                    (node) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _NodeCard(
+                        node: node,
+                        isSelected: selectedNodeId == node.id,
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
@@ -101,10 +114,7 @@ class NearbyNodesPage extends StatelessWidget {
 }
 
 class _NodeCard extends StatelessWidget {
-  const _NodeCard({
-    required this.node,
-    required this.isSelected,
-  });
+  const _NodeCard({required this.node, required this.isSelected});
 
   final DemoPickupNode node;
   final bool isSelected;
@@ -120,7 +130,9 @@ class _NodeCard extends StatelessWidget {
           Row(
             children: [
               CircleAvatar(
-                backgroundColor: isSelected ? FlexiColors.green : FlexiColors.bg,
+                backgroundColor: isSelected
+                    ? FlexiColors.green
+                    : FlexiColors.bg,
                 child: Icon(
                   Icons.storefront,
                   color: isSelected ? Colors.white : FlexiColors.primary,
@@ -133,7 +145,10 @@ class _NodeCard extends StatelessWidget {
                   node.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
               if (isSelected)
@@ -158,7 +173,10 @@ class _NodeCard extends StatelessWidget {
             children: [
               StatusPill(icon: Icons.place_outlined, label: node.distance),
               StatusPill(icon: Icons.directions_walk, label: node.walkingTime),
-              StatusPill(icon: Icons.inventory_2_outlined, label: node.capacity),
+              StatusPill(
+                icon: Icons.inventory_2_outlined,
+                label: node.capacity,
+              ),
               StatusPill(
                 icon: Icons.check_circle_outline,
                 label: node.status,
@@ -192,8 +210,9 @@ class _NodeCard extends StatelessWidget {
                     Navigator.pushNamed(context, '/flexi-offer');
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        isSelected ? FlexiColors.primary : FlexiColors.green,
+                    backgroundColor: isSelected
+                        ? FlexiColors.primary
+                        : FlexiColors.green,
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(

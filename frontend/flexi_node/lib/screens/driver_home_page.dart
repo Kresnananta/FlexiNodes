@@ -77,7 +77,7 @@ class DriverHomePage extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const _DriverHeader(),
+                        _DriverHeader(store: store),
                         const SizedBox(height: 14),
                         _DemoControl(store: store),
                         const SizedBox(height: 18),
@@ -122,11 +122,45 @@ class _DemoControl extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!store.offerCreated) {
-      return FlexiPrimaryButton(
-        label: 'Simulate Heavy Traffic',
-        icon: Icons.traffic_outlined,
-        backgroundColor: FlexiColors.orange,
-        onPressed: store.simulateHeavyTraffic,
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: FlexiPrimaryButton(
+                  label: store.isCheckingRealtimeTraffic
+                      ? 'Checking...'
+                      : 'Realtime Traffic',
+                  icon: Icons.online_prediction,
+                  onPressed: () => store.checkRealtimeTraffic(),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FlexiPrimaryButton(
+                  label: 'Demo Traffic',
+                  icon: Icons.traffic_outlined,
+                  backgroundColor: FlexiColors.orange,
+                  onPressed: store.simulateHeavyTraffic,
+                ),
+              ),
+            ],
+          ),
+          if (store.realtimeTrafficError != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              store.realtimeTrafficError!,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: FlexiColors.red,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ],
       );
     }
 
@@ -164,29 +198,31 @@ class _DemoControl extends StatelessWidget {
 }
 
 class _DriverHeader extends StatelessWidget {
-  const _DriverHeader();
+  const _DriverHeader({required this.store});
+
+  final DemoDeliveryStore store;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Hello, Rizky',
+                'Hello, ${store.driverName.split(' ').first}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
+                style: const TextStyle(
                   color: FlexiColors.text,
                   fontSize: 27,
                   height: 1.1,
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              SizedBox(height: 6),
-              Text(
+              const SizedBox(height: 6),
+              const Text(
                 "Ready for today's deliveries?",
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -402,6 +438,8 @@ class _ActiveRouteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final routeBadge = _routeBadgeText(store);
+
     return FlexiCard(
       padding: EdgeInsets.zero,
       onTap: () => Navigator.pushNamed(context, '/rerouted-navigation'),
@@ -432,19 +470,20 @@ class _ActiveRouteCard extends StatelessWidget {
                           TextSpan(
                             children: [
                               TextSpan(
-                                text: store.shouldRouteToNode ? '8\n' : '20\n',
+                                text: '${routeBadge.value}\n',
                                 style: const TextStyle(
                                   color: FlexiColors.text,
-                                  fontSize: 21,
+                                  fontSize: 20,
                                   fontWeight: FontWeight.w900,
                                   height: 1.0,
                                 ),
                               ),
-                              const TextSpan(
-                                text: 'mins',
-                                style: TextStyle(
+                              TextSpan(
+                                text: routeBadge.label,
+                                style: const TextStyle(
                                   color: FlexiColors.muted,
-                                  fontSize: 11,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
                                 ),
                               ),
                             ],
@@ -465,21 +504,33 @@ class _ActiveRouteCard extends StatelessWidget {
                         onPressed: () => Navigator.pushNamed(
                           context,
                           '/real-map',
-                          arguments: {
-                            'mode': 'driver',
-                            'usePhoneGps': true,
-                          }
+                          arguments: {'mode': 'driver', 'usePhoneGps': true},
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: FlexiOutlineButton(
-                        label: 'Details',
-                        icon: Icons.info_outline,
-                        onPressed: () =>
-                            Navigator.pushNamed(context, '/delivery-details'),
-                      ),
+                      child: store.canScanMitraHandover
+                          ? FlexiOutlineButton(
+                              label: 'Scan Mitra QR',
+                              icon: Icons.qr_code_scanner,
+                              onPressed: () => Navigator.pushNamed(
+                                context,
+                                '/qr-scanner',
+                                arguments: {
+                                  'expectedType': 'mitra_node',
+                                  'title': 'Scan Mitra QR',
+                                },
+                              ),
+                            )
+                          : FlexiOutlineButton(
+                              label: 'Details',
+                              icon: Icons.info_outline,
+                              onPressed: () => Navigator.pushNamed(
+                                context,
+                                '/delivery-details',
+                              ),
+                            ),
                     ),
                   ],
                 ),
@@ -490,6 +541,26 @@ class _ActiveRouteCard extends StatelessWidget {
       ),
     );
   }
+
+  _RouteBadgeText _routeBadgeText(DemoDeliveryStore store) {
+    if (store.delayMinutes > 0) {
+      return _RouteBadgeText('${store.delayMinutes}', 'min delay');
+    }
+
+    if (store.shouldRouteToNode) {
+      final minutes = RegExp(r'\d+').firstMatch(store.walkingTime)?.group(0);
+      return _RouteBadgeText(minutes ?? '-', 'min walk');
+    }
+
+    return const _RouteBadgeText('On', 'time');
+  }
+}
+
+class _RouteBadgeText {
+  const _RouteBadgeText(this.value, this.label);
+
+  final String value;
+  final String label;
 }
 
 class _RouteText extends StatelessWidget {
@@ -521,7 +592,7 @@ class _RouteText extends StatelessWidget {
         Text(
           store.shouldRouteToNode
               ? 'New destination after receiver accepted.'
-              : 'Jl. Sudirman Kav 52-53, Senayan,...',
+              : store.receiverLocationText,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(

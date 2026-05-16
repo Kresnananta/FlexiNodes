@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -5,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../data/demo_delivery_store.dart';
 import '../services/routes_api_service.dart';
 import 'flexi_ui.dart';
+import 'map_marker_icons.dart';
 
 class RealRouteMapPage extends StatefulWidget {
   const RealRouteMapPage({
@@ -25,22 +28,21 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
 
   // Run with:
   // flutter run --dart-define=GOOGLE_ROUTES_API_KEY=YOUR_KEY
-  static const String routesApiKey =
-      String.fromEnvironment('GOOGLE_ROUTES_API_KEY');
+  static const String routesApiKey = String.fromEnvironment(
+    'GOOGLE_ROUTES_API_KEY',
+  );
+  static const Duration liveLocationInterval = Duration(seconds: 7);
+  static const Duration routeRefreshInterval = Duration(seconds: 30);
 
   final RoutesApiService routesApi = RoutesApiService(apiKey: routesApiKey);
 
-  // Demo coordinates
-  static const LatLng demoDriverLocation = LatLng(-7.2756, 112.7420);
-  static const LatLng receiverLocation = LatLng(-7.2818, 112.7580);
-  static const LatLng nodeLocation = LatLng(-7.2812, 112.7521);
+  // Fallback coordinates used before Firestore snapshots arrive.
+  static const LatLng fallbackDriverLocation = LatLng(-7.2756, 112.7420);
+  static const LatLng fallbackReceiverLocation = LatLng(-7.2818, 112.7580);
 
-  LatLng driverLocation = demoDriverLocation;
+  LatLng driverLocation = fallbackDriverLocation;
 
-  List<LatLng> routePoints = [
-    demoDriverLocation,
-    receiverLocation,
-  ];
+  List<LatLng> routePoints = [fallbackDriverLocation, fallbackReceiverLocation];
 
   int distanceMeters = 0;
   String durationText = '-';
@@ -51,8 +53,41 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
 
   String? gpsError;
   String? routeError;
+  Timer? liveLocationTimer;
+  DateTime? lastRouteRefreshAt;
+
+  BitmapDescriptor driverMarkerIcon = BitmapDescriptor.defaultMarkerWithHue(
+    BitmapDescriptor.hueAzure,
+  );
+  BitmapDescriptor receiverMarkerIcon = BitmapDescriptor.defaultMarkerWithHue(
+    BitmapDescriptor.hueOrange,
+  );
+  BitmapDescriptor nodeMarkerIcon = BitmapDescriptor.defaultMarkerWithHue(
+    BitmapDescriptor.hueGreen,
+  );
 
   bool get isDriverMode => widget.mode == 'driver';
+
+  LatLng get demoDriverLocation {
+    return LatLng(
+      demoDeliveryStore.driverLatitude,
+      demoDeliveryStore.driverLongitude,
+    );
+  }
+
+  LatLng get receiverLocation {
+    return LatLng(
+      demoDeliveryStore.receiverLatitude,
+      demoDeliveryStore.receiverLongitude,
+    );
+  }
+
+  LatLng get nodeLocation {
+    return LatLng(
+      demoDeliveryStore.nodeLatitude,
+      demoDeliveryStore.nodeLongitude,
+    );
+  }
 
   LatLng get destination {
     return demoDeliveryStore.shouldRouteToNode
@@ -83,8 +118,10 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
     super.initState();
 
     usePhoneGps = widget.usePhoneGpsByDefault;
+    driverLocation = demoDriverLocation;
 
     demoDeliveryStore.addListener(_onDemoStateChanged);
+    _loadMarkerIcons();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (usePhoneGps) {
@@ -97,56 +134,79 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
 
   @override
   void dispose() {
+    liveLocationTimer?.cancel();
     demoDeliveryStore.removeListener(_onDemoStateChanged);
     mapController?.dispose();
     super.dispose();
   }
 
+  Future<void> _loadMarkerIcons() async {
+    final icons = await Future.wait([
+      FlexiMapMarkerIcon.build(
+        shape: FlexiMapMarkerShape.circle,
+        color: FlexiColors.blue,
+        icon: Icons.local_shipping_outlined,
+      ),
+      FlexiMapMarkerIcon.build(
+        shape: FlexiMapMarkerShape.diamond,
+        color: FlexiColors.orange,
+        icon: Icons.person_pin_circle_outlined,
+      ),
+      FlexiMapMarkerIcon.build(
+        shape: FlexiMapMarkerShape.square,
+        color: FlexiColors.primary,
+        icon: Icons.storefront,
+      ),
+    ]);
+
+    if (!mounted) return;
+
+    setState(() {
+      driverMarkerIcon = icons[0];
+      receiverMarkerIcon = icons[1];
+      nodeMarkerIcon = icons[2];
+    });
+  }
+
   void _onDemoStateChanged() {
     if (!mounted) return;
-    loadRoute();
+    if (!usePhoneGps) {
+      driverLocation = demoDriverLocation;
+      final now = DateTime.now();
+      if (lastRouteRefreshAt == null ||
+          now.difference(lastRouteRefreshAt!) >= routeRefreshInterval) {
+        loadRoute();
+      } else {
+        setState(() {});
+      }
+      return;
+    }
   }
 
   Future<void> loadPhoneGps() async {
+    liveLocationTimer?.cancel();
+
     setState(() {
       loadingGps = true;
       gpsError = null;
     });
 
     try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-
-      if (!serviceEnabled) {
-        throw Exception('GPS is disabled. Please turn on location services.');
-      }
-
-      LocationPermission permission = await Geolocator.checkPermission();
-
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.denied) {
-        throw Exception('Location permission denied.');
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        throw Exception(
-          'Location permission denied forever. Enable it in app settings.',
-        );
-      }
-
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-
       setState(() {
-        driverLocation = LatLng(position.latitude, position.longitude);
         usePhoneGps = true;
       });
 
-      await loadRoute();
+      await _publishPhoneGpsLocation(forceRouteRefresh: true);
+      liveLocationTimer = Timer.periodic(liveLocationInterval, (_) {
+        _publishPhoneGpsLocation().catchError((Object e) {
+          if (!mounted) return;
+          setState(() {
+            gpsError = e.toString().replaceFirst('Exception: ', '');
+          });
+        });
+      });
     } catch (e) {
+      liveLocationTimer?.cancel();
       setState(() {
         gpsError = e.toString().replaceFirst('Exception: ', '');
         usePhoneGps = false;
@@ -161,7 +221,61 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
     }
   }
 
+  Future<void> _publishPhoneGpsLocation({
+    bool forceRouteRefresh = false,
+  }) async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+
+    if (!serviceEnabled) {
+      throw Exception('GPS is disabled. Please turn on location services.');
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied) {
+      throw Exception('Location permission denied.');
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      throw Exception(
+        'Location permission denied forever. Enable it in app settings.',
+      );
+    }
+
+    final position = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
+    final nextLocation = LatLng(position.latitude, position.longitude);
+
+    if (!mounted) return;
+
+    setState(() {
+      driverLocation = nextLocation;
+      gpsError = null;
+    });
+
+    await demoDeliveryStore.updateDriverLiveLocation(
+      latitude: position.latitude,
+      longitude: position.longitude,
+    );
+
+    final now = DateTime.now();
+    final shouldRefreshRoute =
+        forceRouteRefresh ||
+        lastRouteRefreshAt == null ||
+        now.difference(lastRouteRefreshAt!) >= routeRefreshInterval;
+
+    if (shouldRefreshRoute) {
+      await loadRoute();
+    }
+  }
+
   Future<void> useDemoGps() async {
+    liveLocationTimer?.cancel();
     setState(() {
       usePhoneGps = false;
       driverLocation = demoDriverLocation;
@@ -187,14 +301,13 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
         routePoints = result.points;
         distanceMeters = result.distanceMeters;
         durationText = result.durationText;
+        lastRouteRefreshAt = DateTime.now();
       });
     } catch (e) {
       setState(() {
         routeError = e.toString().replaceFirst('Exception: ', '');
-        routePoints = [
-          driverLocation,
-          destination,
-        ];
+        routePoints = [driverLocation, destination];
+        lastRouteRefreshAt = DateTime.now();
       });
     } finally {
       if (mounted) {
@@ -228,10 +341,7 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
 
     await controller.animateCamera(
       CameraUpdate.newLatLngBounds(
-        LatLngBounds(
-          southwest: southwest,
-          northeast: northeast,
-        ),
+        LatLngBounds(southwest: southwest, northeast: northeast),
         70,
       ),
     );
@@ -242,27 +352,29 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
       Marker(
         markerId: const MarkerId('driver'),
         position: driverLocation,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        icon: driverMarkerIcon,
         infoWindow: InfoWindow(
-          title: isDriverMode ? 'You / Driver' : 'Driver: Rizky Fahmi',
+          title: isDriverMode
+              ? 'You / Driver'
+              : 'Driver: ${demoDeliveryStore.driverName}',
           snippet: usePhoneGps ? 'Live GPS location' : 'Demo driver location',
         ),
       ),
       Marker(
         markerId: const MarkerId('receiver'),
         position: receiverLocation,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
-        infoWindow: const InfoWindow(
-          title: 'Receiver: Andika Sujanto',
+        icon: receiverMarkerIcon,
+        infoWindow: InfoWindow(
+          title: 'Receiver: ${demoDeliveryStore.receiverName}',
           snippet: 'Original home delivery address',
         ),
       ),
       Marker(
         markerId: const MarkerId('pickup-node'),
         position: nodeLocation,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-        infoWindow: const InfoWindow(
-          title: 'Indomaret Ahmad Yani',
+        icon: nodeMarkerIcon,
+        infoWindow: InfoWindow(
+          title: demoDeliveryStore.nodeName,
           snippet: 'Flexi Pickup Node',
         ),
       ),
@@ -285,16 +397,10 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
       if (demoDeliveryStore.shouldRouteToNode)
         Polyline(
           polylineId: const PolylineId('receiver-walk-to-node'),
-          points: const [
-            receiverLocation,
-            nodeLocation,
-          ],
+          points: [receiverLocation, nodeLocation],
           width: 4,
           color: FlexiColors.blue,
-          patterns: [
-            PatternItem.dash(16),
-            PatternItem.gap(8),
-          ],
+          patterns: [PatternItem.dash(16), PatternItem.gap(8)],
         ),
     };
   }
@@ -313,10 +419,7 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
             actions: [
               IconButton(
                 onPressed: loadRoute,
-                icon: const Icon(
-                  Icons.refresh,
-                  color: FlexiColors.primary,
-                ),
+                icon: const Icon(Icons.refresh, color: FlexiColors.primary),
               ),
             ],
           ),
@@ -329,7 +432,7 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
                     children: [
                       GoogleMap(
                         initialCameraPosition: const CameraPosition(
-                          target: demoDriverLocation,
+                          target: fallbackDriverLocation,
                           zoom: 14,
                         ),
                         markers: markers,
@@ -372,7 +475,6 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
                 _BottomMapActions(
                   isDriverMode: isDriverMode,
                   store: store,
-                  onSimulateTraffic: store.simulateHeavyTraffic,
                   onConfirmDropoff: store.confirmDropoff,
                 ),
               ],
@@ -491,14 +593,8 @@ class _MapInfoCard extends StatelessWidget {
                     ? FlexiColors.lightGreen
                     : FlexiColors.orangeSoft,
               ),
-              StatusPill(
-                icon: Icons.straighten,
-                label: distanceText,
-              ),
-              StatusPill(
-                icon: Icons.timer_outlined,
-                label: durationText,
-              ),
+              StatusPill(icon: Icons.straighten, label: distanceText),
+              StatusPill(icon: Icons.timer_outlined, label: durationText),
               StatusPill(
                 icon: Icons.gps_fixed,
                 label: usePhoneGps ? 'Live GPS' : 'Demo GPS',
@@ -538,8 +634,8 @@ class _MapInfoCard extends StatelessWidget {
               onPressed: loadingGps
                   ? null
                   : usePhoneGps
-                      ? onUseDemoGps
-                      : onUsePhoneGps,
+                  ? onUseDemoGps
+                  : onUsePhoneGps,
               icon: loadingGps
                   ? const SizedBox(
                       width: 14,
@@ -550,9 +646,7 @@ class _MapInfoCard extends StatelessWidget {
                       usePhoneGps ? Icons.gps_off : Icons.gps_fixed,
                       size: 16,
                     ),
-              label: Text(
-                usePhoneGps ? 'Use Demo GPS' : 'Use Phone GPS',
-              ),
+              label: Text(usePhoneGps ? 'Use Demo GPS' : 'Use Phone GPS'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: FlexiColors.primary,
                 side: const BorderSide(color: FlexiColors.border),
@@ -573,13 +667,11 @@ class _BottomMapActions extends StatelessWidget {
   const _BottomMapActions({
     required this.isDriverMode,
     required this.store,
-    required this.onSimulateTraffic,
     required this.onConfirmDropoff,
   });
 
   final bool isDriverMode;
   final DemoDeliveryStore store;
-  final VoidCallback onSimulateTraffic;
   final VoidCallback onConfirmDropoff;
 
   @override
@@ -587,11 +679,45 @@ class _BottomMapActions extends StatelessWidget {
     if (isDriverMode) {
       if (!store.offerCreated) {
         return _BottomContainer(
-          child: FlexiPrimaryButton(
-            label: 'Simulate Heavy Traffic',
-            icon: Icons.traffic,
-            backgroundColor: FlexiColors.orange,
-            onPressed: onSimulateTraffic,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: FlexiPrimaryButton(
+                      label: store.isCheckingRealtimeTraffic
+                          ? 'Checking...'
+                          : 'Realtime Traffic',
+                      icon: Icons.online_prediction,
+                      onPressed: () => store.checkRealtimeTraffic(),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FlexiPrimaryButton(
+                      label: 'Demo Traffic',
+                      icon: Icons.traffic,
+                      backgroundColor: FlexiColors.orange,
+                      onPressed: store.simulateHeavyTraffic,
+                    ),
+                  ),
+                ],
+              ),
+              if (store.realtimeTrafficError != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  store.realtimeTrafficError!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: FlexiColors.red,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ],
           ),
         );
       }
@@ -607,12 +733,19 @@ class _BottomMapActions extends StatelessWidget {
         );
       }
 
-      if (store.statusText == 'rerouted_to_node') {
+      if (store.canScanMitraHandover) {
         return _BottomContainer(
           child: FlexiPrimaryButton(
-            label: 'Show Driver QR',
-            icon: Icons.qr_code_2,
-            onPressed: () => Navigator.pushNamed(context, '/driver-qr'),
+            label: 'Scan Mitra QR',
+            icon: Icons.qr_code_scanner,
+            onPressed: () => Navigator.pushNamed(
+              context,
+              '/qr-scanner',
+              arguments: {
+                'expectedType': 'mitra_node',
+                'title': 'Scan Mitra QR',
+              },
+            ),
           ),
         );
       }
@@ -639,7 +772,7 @@ class _BottomMapActions extends StatelessWidget {
 
       return _BottomContainer(
         child: FlexiPrimaryButton(
-          label: 'Show Driver QR',
+          label: 'Open Driver QR',
           icon: Icons.qr_code_2,
           onPressed: () => Navigator.pushNamed(context, '/driver-qr'),
         ),
@@ -676,9 +809,7 @@ class _BottomMapActions extends StatelessWidget {
 }
 
 class _BottomContainer extends StatelessWidget {
-  const _BottomContainer({
-    required this.child,
-  });
+  const _BottomContainer({required this.child});
 
   final Widget child;
 
@@ -688,9 +819,7 @@ class _BottomContainer extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(
-          top: BorderSide(color: FlexiColors.border),
-        ),
+        border: Border(top: BorderSide(color: FlexiColors.border)),
       ),
       child: child,
     );

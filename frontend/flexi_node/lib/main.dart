@@ -31,9 +31,7 @@ void main() async {
 
   // REAL FIREBASE CONFIG
   // Use this for deployed Firebase / real phone testing.
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // FIREBASE EMULATOR CONFIG
   // Only use this if you are testing with Firebase Emulator locally.
@@ -58,6 +56,18 @@ void main() async {
   // - Start emulator with:
   //   firebase emulators:start --host 0.0.0.0
 
+  // Konfigurasi Firebase Asli untuk flexi-nodes
+  // const firebaseOptions = FirebaseOptions(
+  //   apiKey: 'AIzaSyDFpk4Rffw3wNnuw--XRw_FeRnh-Z7Y0vM',
+  //   appId: '1:807475730103:web:0c6367e7613e4283ae5f32',
+  //   messagingSenderId: '807475730103',
+  //   projectId: 'flexi-nodes',
+  //   authDomain: 'flexi-nodes.firebaseapp.com',
+  //   storageBucket: 'flexi-nodes.firebasestorage.app',
+  //   measurementId: 'G-V06FPKTNKV',
+  // );
+
+  // await Firebase.initializeApp(options: firebaseOptions);
   try {
     await FirebaseAuth.instance.signInAnonymously();
     debugPrint(
@@ -80,9 +90,7 @@ class FlexiNodesApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF006E2F),
-        ),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF006E2F)),
       ),
       initialRoute: '/',
 
@@ -143,9 +151,7 @@ class FlexiNodesApp extends StatelessWidget {
       },
 
       onUnknownRoute: (settings) {
-        return MaterialPageRoute(
-          builder: (context) => const LandingPage(),
-        );
+        return MaterialPageRoute(builder: (context) => const LandingPage());
       },
     );
   }

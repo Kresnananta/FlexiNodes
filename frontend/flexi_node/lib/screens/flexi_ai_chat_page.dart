@@ -70,10 +70,7 @@ class _FlexiAiChatPageState extends State<FlexiAiChatPage> {
                     },
                   ),
                 ),
-                _ChatInputPanel(
-                  store: store,
-                  controller: _textController,
-                ),
+                _ChatInputPanel(store: store, controller: _textController),
               ],
             ),
           ),
@@ -102,24 +99,38 @@ class _DemoStatusCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Live Demo State', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+          const Text(
+            'Live Demo State',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+          ),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              StatusPill(label: store.orderId, icon: Icons.inventory_2_outlined),
+              StatusPill(
+                label: store.orderId,
+                icon: Icons.inventory_2_outlined,
+              ),
               StatusPill(
                 label: store.statusText,
                 icon: Icons.sync_alt,
-                color: store.shouldRouteToNode ? FlexiColors.primary : FlexiColors.orange,
-                background: store.shouldRouteToNode ? FlexiColors.lightGreen : FlexiColors.orangeSoft,
+                color: store.shouldRouteToNode
+                    ? FlexiColors.primary
+                    : FlexiColors.orange,
+                background: store.shouldRouteToNode
+                    ? FlexiColors.lightGreen
+                    : FlexiColors.orangeSoft,
               ),
               StatusPill(
                 label: store.trafficStatus,
                 icon: Icons.traffic_outlined,
-                color: store.trafficStatus == 'heavy' ? FlexiColors.orange : FlexiColors.primary,
-                background: store.trafficStatus == 'heavy' ? FlexiColors.orangeSoft : FlexiColors.lightGreen,
+                color: store.trafficStatus == 'heavy'
+                    ? FlexiColors.orange
+                    : FlexiColors.primary,
+                background: store.trafficStatus == 'heavy'
+                    ? FlexiColors.orangeSoft
+                    : FlexiColors.lightGreen,
               ),
             ],
           ),
@@ -141,21 +152,23 @@ class _ChatBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final alignment = isReceiver || isDriver ? Alignment.centerRight : Alignment.centerLeft;
+    final alignment = isReceiver || isDriver
+        ? Alignment.centerRight
+        : Alignment.centerLeft;
     final bg = isAi
         ? FlexiColors.blueSoft
         : isReceiver
-            ? FlexiColors.lightGreen
-            : isDriver
-                ? FlexiColors.orangeSoft
-                : FlexiColors.surface;
+        ? FlexiColors.lightGreen
+        : isDriver
+        ? FlexiColors.orangeSoft
+        : FlexiColors.surface;
     final iconColor = isAi
         ? FlexiColors.blue
         : isReceiver
-            ? FlexiColors.primary
-            : isDriver
-                ? FlexiColors.orange
-                : FlexiColors.muted;
+        ? FlexiColors.primary
+        : isDriver
+        ? FlexiColors.orange
+        : FlexiColors.muted;
 
     return Align(
       alignment: alignment,
@@ -174,7 +187,11 @@ class _ChatBubble extends StatelessWidget {
             CircleAvatar(
               radius: 14,
               backgroundColor: iconColor,
-              child: Icon(_iconForType(message.type), size: 15, color: Colors.white),
+              child: Icon(
+                _iconForType(message.type),
+                size: 15,
+                color: Colors.white,
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -252,8 +269,14 @@ class _ChatInputPanel extends StatelessWidget {
               enabled: !store.isChatLoading,
               decoration: InputDecoration(
                 hintText: 'Tulis pesan untuk AI...',
-                hintStyle: const TextStyle(color: FlexiColors.muted, fontSize: 14),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                hintStyle: const TextStyle(
+                  color: FlexiColors.muted,
+                  fontSize: 14,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
                   borderSide: const BorderSide(color: FlexiColors.border),
@@ -320,11 +343,44 @@ class _ActionPanel extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (!store.offerCreated)
-            FlexiPrimaryButton(
-              label: 'Simulate Heavy Traffic',
-              icon: Icons.traffic_outlined,
-              onPressed: store.simulateHeavyTraffic,
-              backgroundColor: FlexiColors.orange,
+            Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: FlexiPrimaryButton(
+                        label: store.isCheckingRealtimeTraffic
+                            ? 'Checking...'
+                            : 'Realtime Traffic',
+                        icon: Icons.online_prediction,
+                        onPressed: () => store.checkRealtimeTraffic(),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FlexiPrimaryButton(
+                        label: 'Demo Traffic',
+                        icon: Icons.traffic_outlined,
+                        onPressed: store.simulateHeavyTraffic,
+                        backgroundColor: FlexiColors.orange,
+                      ),
+                    ),
+                  ],
+                ),
+                if (store.realtimeTrafficError != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    store.realtimeTrafficError!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: FlexiColors.red,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ],
             )
           else if (store.canShowOffer)
             FlexiPrimaryButton(
@@ -336,7 +392,8 @@ class _ActionPanel extends StatelessWidget {
             FlexiPrimaryButton(
               label: 'Open Driver Reroute',
               icon: Icons.alt_route,
-              onPressed: () => Navigator.pushNamed(context, '/rerouted-navigation'),
+              onPressed: () =>
+                  Navigator.pushNamed(context, '/rerouted-navigation'),
             )
           else
             FlexiPrimaryButton(

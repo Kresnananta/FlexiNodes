@@ -263,7 +263,11 @@ app.post('/simulate-traffic', async (req, res) => {
     }
 
     await docRef.update({
-      delayMinutes: delayMinutes || 20 // Default > 15 untuk trigger AI
+      delayMinutes: delayMinutes || 20, // Default > 15 untuk trigger AI
+      current_traffic_delay: delayMinutes || 20,
+      homeDeliverySelected: false,
+      trafficMode: "demo",
+      updatedAt: FieldValue.serverTimestamp()
     });
     res.json({ success: true, message: `Simulated ${delayMinutes || 20} min delay on ${deliveryId}. AI is analyzing...` });
   } catch (error) {
@@ -273,7 +277,15 @@ app.post('/simulate-traffic', async (req, res) => {
 
 // [POST] /api/accept-offer - Endpoint untuk receiver menerima tawaran
 app.post('/accept-offer', async (req, res) => {
-  const { deliveryId } = req.body;
+  const {
+    deliveryId,
+    nodeId,
+    nodeName,
+    nodeLat,
+    nodeLng,
+    voucherAmount,
+    cashbackAmount
+  } = req.body;
   if (!deliveryId) return res.status(400).json({ success: false, error: "deliveryId is required" });
 
   try {
@@ -289,23 +301,39 @@ app.post('/accept-offer', async (req, res) => {
 
     const offerDoc = offersSnapshot.docs[0];
     const offerData = offerDoc.data();
+    const selectedNodeId = nodeId || offerData.nodeId;
+    const selectedNodeName = nodeName || offerData.nodeName;
+    const selectedVoucherAmount = voucherAmount || cashbackAmount || offerData.voucherAmount || offerData.cashback_amount || 5000;
+    const selectedVoucherType = voucherTypeForAmount(selectedVoucherAmount, offerData.voucherType);
 
     // 2. Buat OTP acak dan kode Voucher
     const pickupOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    const voucherCode = `FLX-${offerData.voucherType.toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const voucherCode = `FLX-${selectedVoucherType.toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     // 3. Update status delivery
-    await db.collection('deliveries').doc(deliveryId).update({
+    const deliveryUpdate = {
       status: "rerouted_to_node",
-      selectedNodeId: offerData.nodeId,
-      selectedNodeName: offerData.nodeName,
+      selectedNodeId,
+      selectedNodeName,
+      voucherAmount: selectedVoucherAmount,
+      cashbackAmount: selectedVoucherAmount,
       otpCode: pickupOtp,
       updatedAt: FieldValue.serverTimestamp()
-    });
+    };
+
+    if (typeof nodeLat === 'number') deliveryUpdate.selectedNodeLat = nodeLat;
+    if (typeof nodeLng === 'number') deliveryUpdate.selectedNodeLng = nodeLng;
+
+    await db.collection('deliveries').doc(deliveryId).update(deliveryUpdate);
 
     // 4. Update status offer jadi accepted dan simpan vouchernya
     await offerDoc.ref.update({
+      nodeId: selectedNodeId,
+      nodeName: selectedNodeName,
       status: "accepted",
+      voucherType: selectedVoucherType,
+      voucherAmount: selectedVoucherAmount,
+      cashback_amount: selectedVoucherAmount,
       voucherCode: voucherCode
     });
 
@@ -319,6 +347,13 @@ app.post('/accept-offer', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+function voucherTypeForAmount(amount, fallback = "discount_5") {
+  if (amount >= 10000) return "discount_10";
+  if (amount >= 5000) return "discount_5";
+  if (amount >= 4000) return "discount_4";
+  return fallback;
+}
 
 // Endpoint untuk AI Chatbot
 app.post('/chat', async (req, res) => {

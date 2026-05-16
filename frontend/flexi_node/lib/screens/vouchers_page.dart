@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../data/demo_delivery_store.dart';
 import 'flexi_ui.dart';
 
 class VouchersPage extends StatelessWidget {
@@ -6,96 +8,138 @@ class VouchersPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: FlexiColors.bg,
-      appBar: const FlexiAppBar(title: 'My Vouchers'),
-      bottomNavigationBar: const CompactBottomNav(
-        currentIndex: 3,
-        routes: ['/receiver-home', '/orders', '/tracking', '/vouchers', '/profile'],
-      ),
-      body: SafeArea(
-        top: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF18B850), Color(0xFF00732F)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: Stack(
-                children: [
-                  Positioned(
-                    right: -12,
-                    bottom: -10,
-                    child: Icon(Icons.confirmation_num, size: 96, color: Colors.white.withOpacity(0.14)),
+    return AnimatedBuilder(
+      animation: demoDeliveryStore,
+      builder: (context, _) {
+        final store = demoDeliveryStore;
+        final hasVoucher = store.voucherEligible;
+
+        return Scaffold(
+          backgroundColor: FlexiColors.bg,
+          appBar: const FlexiAppBar(title: 'My Vouchers'),
+          bottomNavigationBar: const CompactBottomNav(
+            currentIndex: 3,
+            routes: [
+              '/receiver-home',
+              '/orders',
+              '/tracking',
+              '/vouchers',
+              '/profile',
+            ],
+          ),
+          body: SafeArea(
+            top: false,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF18B850), Color(0xFF00732F)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
                   ),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Stack(
                     children: [
-                      StatusPill(
-                        label: 'ACTIVE REWARD',
-                        color: Colors.white,
-                        background: Color(0x3322C55E),
+                      Positioned(
+                        right: -12,
+                        bottom: -10,
+                        child: Icon(
+                          Icons.confirmation_num,
+                          size: 96,
+                          color: Colors.white.withOpacity(0.14),
+                        ),
                       ),
-                      SizedBox(height: 18),
-                      Text(
-                        'Rp5.000 Pickup Voucher',
-                        style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900),
-                      ),
-                      SizedBox(height: 6),
-                      Text(
-                        'From Flexi Pickup • Order SD1440-Y',
-                        style: TextStyle(color: Colors.white, fontSize: 13),
-                      ),
-                      SizedBox(height: 18),
-                      Text(
-                        'Code: FLEXI5000',
-                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          StatusPill(
+                            label: hasVoucher
+                                ? 'ACTIVE REWARD'
+                                : 'PENDING REWARD',
+                            color: Colors.white,
+                            background: const Color(0x3322C55E),
+                          ),
+                          const SizedBox(height: 18),
+                          Text(
+                            hasVoucher
+                                ? '${store.formattedVoucher} Pickup Voucher'
+                                : 'No voucher issued yet',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 28,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'From Flexi Pickup - Order ${store.orderId}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          Text(
+                            hasVoucher
+                                ? 'Code: ${store.voucherCodeText}'
+                                : 'Accept a Flexi Pickup offer to unlock it.',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 14),
+                FlexiPrimaryButton(
+                  label: hasVoucher ? 'Use Voucher' : 'View Flexi Offer',
+                  icon: hasVoucher
+                      ? Icons.shopping_bag_outlined
+                      : Icons.notifications_active_outlined,
+                  onPressed: () => Navigator.pushNamed(
+                    context,
+                    hasVoucher ? '/confirmation' : '/flexi-offer',
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Reward History',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 12),
+                _HistoryTile(
+                  icon: Icons.confirmation_num_outlined,
+                  title: hasVoucher ? 'Voucher received' : 'Voucher pending',
+                  subtitle: hasVoucher
+                      ? '${store.formattedVoucher} pickup voucher from Flexi Pickup'
+                      : 'Waiting for accepted pickup offer',
+                  time: 'Today',
+                ),
+                _HistoryTile(
+                  icon: Icons.storefront,
+                  title: hasVoucher ? 'Pickup node selected' : 'Suggested node',
+                  subtitle: store.nodeName,
+                  time: 'Today',
+                ),
+                _HistoryTile(
+                  icon: Icons.alt_route,
+                  title: 'Package status',
+                  subtitle: store.activeDeliveryStatusLabel,
+                  time: 'Today',
+                ),
+              ],
             ),
-            const SizedBox(height: 14),
-            FlexiPrimaryButton(
-              label: 'Use Voucher',
-              icon: Icons.shopping_bag_outlined,
-              onPressed: () {},
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Reward History',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 12),
-            const _HistoryTile(
-              icon: Icons.confirmation_num_outlined,
-              title: 'Voucher received',
-              subtitle: 'Rp5.000 pickup voucher added from Flexi Pickup',
-              time: 'Today',
-            ),
-            const _HistoryTile(
-              icon: Icons.storefront,
-              title: 'Pickup completed',
-              subtitle: 'Indomaret Ahmad Yani',
-              time: 'Today',
-            ),
-            const _HistoryTile(
-              icon: Icons.alt_route,
-              title: 'Package rerouted',
-              subtitle: 'AI optimized route due to heavy traffic',
-              time: 'Today',
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -129,18 +173,30 @@ class _HistoryTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
                   const SizedBox(height: 3),
                   Text(
                     subtitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: FlexiColors.muted, fontSize: 12.5),
+                    style: const TextStyle(
+                      color: FlexiColors.muted,
+                      fontSize: 12.5,
+                    ),
                   ),
                 ],
               ),
             ),
-            Text(time, style: const TextStyle(color: FlexiColors.muted, fontSize: 11)),
+            Text(
+              time,
+              style: const TextStyle(color: FlexiColors.muted, fontSize: 11),
+            ),
           ],
         ),
       ),
