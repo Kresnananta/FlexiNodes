@@ -1,34 +1,86 @@
 # FlexiNode
 
-FlexiNode adalah demo platform last-mile delivery yang memakai AI untuk mendeteksi kemacetan, menawarkan reroute ke partner node terdekat, menghitung ETA berbasis traffic, menerbitkan voucher kompensasi, dan membantu pelanggan lewat chatbot Flexi AI.
+FlexiNode adalah aplikasi demo last-mile delivery yang membantu pengiriman tetap efisien saat terjadi kemacetan. Sistem ini mendeteksi potensi keterlambatan, menawarkan pengalihan paket ke partner node terdekat, menghitung estimasi tiba berbasis traffic, memberikan voucher kompensasi, dan menyediakan chatbot AI untuk menjawab pertanyaan pelanggan.
+
+Demo web:
+
+- https://flexi-nodes.web.app
+
+## Tujuan Program
+
+Program ini dibuat untuk mensimulasikan solusi logistik cerdas pada skenario pengiriman jarak akhir. Fokus utamanya adalah mengurangi dampak kemacetan terhadap kurir dan pelanggan dengan cara:
+
+- memantau status pengiriman dan estimasi keterlambatan;
+- memilih partner node terdekat sebagai lokasi pickup alternatif;
+- memberikan kompensasi voucher kepada pelanggan;
+- membantu pelanggan memahami status paket melalui Flexi AI Agent;
+- menyediakan alur QR untuk serah terima paket antara driver, mitra, dan pelanggan.
+
+## Cara Kerja Singkat
+
+1. Driver membawa paket menuju alamat pelanggan.
+2. Sistem melakukan pengecekan traffic atau simulasi demo traffic.
+3. Jika keterlambatan tinggi, Flexi AI membuat rekomendasi reroute ke partner node terdekat.
+4. Pelanggan menerima tawaran pickup node dan kompensasi voucher.
+5. Jika pelanggan menyetujui, rute driver berubah menuju partner node.
+6. Driver menyerahkan paket ke mitra melalui QR handover.
+7. Pelanggan mengambil paket di mitra menggunakan QR pickup.
+8. Chatbot AI menjawab pertanyaan pelanggan berdasarkan status paket, ETA, voucher, dan keputusan reroute.
+
+## Fitur Utama
+
+- Live demo state untuk melihat status paket secara langsung.
+- Realtime Traffic dan Demo Traffic.
+- Flexi AI Agent berbasis backend AI.
+- Template chat cepat di halaman AI Chat.
+- Estimasi tiba berbasis data traffic.
+- Reroute paket ke partner node.
+- Voucher kompensasi.
+- QR flow untuk driver, mitra, dan customer.
+- Firebase Hosting untuk demo web.
+- Firebase Auth, Firestore, dan Cloud Functions sebagai backend.
 
 ## Struktur Proyek
 
-- `frontend/flexi_node` - Flutter app untuk web/mobile preview.
-- `backend` - Express API di Firebase Cloud Functions v2.
+- `frontend/flexi_node` - aplikasi Flutter untuk web/mobile preview.
+- `backend` - Express API yang berjalan di Firebase Cloud Functions v2.
 - `firestore.rules` - aturan akses Firestore.
-- `firebase.json` - konfigurasi Functions, Firestore, dan emulator.
+- `firebase.json` - konfigurasi Firebase Functions, Firestore, Hosting, dan Emulator.
+- `TROUBLESHOOTING.md` - catatan masalah umum dan cara mengatasinya.
+
+## Teknologi
+
+- Flutter Web
+- Firebase Hosting
+- Firebase Authentication
+- Cloud Firestore
+- Firebase Cloud Functions v2
+- Google Gemini API
+- Google Maps JavaScript API
+- Google Routes API
+- Google Geocoding API
 
 ## Prasyarat
 
-Install tool berikut:
+Pastikan perangkat memiliki:
 
 - Flutter SDK
 - Node.js LTS
-- Firebase CLI, bisa via `npx firebase-tools`
-- Chrome untuk preview Flutter Web
+- Chrome
+- akses Firebase project
+- Firebase CLI, dapat dijalankan melalui `npx firebase-tools`
 
-Login Firebase jika ingin memakai project cloud:
+Login Firebase:
 
 ```powershell
 npx firebase-tools login
 ```
 
-## Secret Lokal
+## Konfigurasi Lokal
 
-API key tidak disimpan di GitHub. Setelah pull repo, buat file lokal berikut.
+API key tidak disimpan di repository. Setelah clone atau pull project, buat file konfigurasi lokal berikut.
 
-### 1. Frontend Dart Defines
+### 1. Frontend Environment
 
 ```powershell
 cd C:\Projects\FlexiNode\frontend\flexi_node
@@ -47,10 +99,14 @@ Isi `env.local.json`:
 }
 ```
 
-Catatan:
-- `FIREBASE_WEB_API_KEY` diperlukan untuk menjalankan app web dengan Firebase.
+Keterangan:
+
+- `FIREBASE_WEB_API_KEY` wajib untuk menjalankan web/Chrome.
+- `FIREBASE_ANDROID_API_KEY` hanya diperlukan untuk Android.
+- `FIREBASE_APPLE_API_KEY` hanya diperlukan untuk iOS/macOS.
 - `GOOGLE_MAPS_API_KEY` dipakai untuk reverse geocoding.
-- `GOOGLE_ROUTES_API_KEY` dipakai untuk route/ETA traffic.
+- `GOOGLE_ROUTES_API_KEY` dipakai untuk route dan ETA.
+- Jika Maps, Geocoding, dan Routes memakai satu Google API key yang sama, isi nilai yang sama pada field Google terkait.
 
 ### 2. Google Maps Script Untuk Web
 
@@ -64,19 +120,19 @@ Isi `web/maps_config.js`:
 window.FLEXINODE_GOOGLE_MAPS_API_KEY = 'isi_key_maps_javascript';
 ```
 
-File `env.local.json` dan `web/maps_config.js` sudah di-ignore Git.
+### 3. Backend Environment
 
-### 3. Backend Gemini Key
-
-Buat `backend/.env`:
+Buat file `backend/.env`:
 
 ```env
 GEMINI_API_KEY=isi_gemini_api_key
 ```
 
-`backend/.env` juga sudah di-ignore Git.
+File `env.local.json`, `web/maps_config.js`, dan `backend/.env` tidak ikut di-commit ke Git.
 
-## Menjalankan Frontend
+## Cara Menjalankan Program
+
+### Menjalankan Frontend Web
 
 ```powershell
 cd C:\Projects\FlexiNode\frontend\flexi_node
@@ -84,14 +140,16 @@ flutter pub get
 flutter run -d chrome --dart-define-from-file=env.local.json
 ```
 
-Kalau memakai VS Code, konfigurasi `.vscode/launch.json` membaca environment variables. Pastikan variable berikut tersedia di terminal/OS:
+Jika menjalankan dari root project:
 
-- `FIREBASE_WEB_API_KEY`
-- `FIREBASE_ANDROID_API_KEY`
-- `GOOGLE_MAPS_API_KEY`
-- `GOOGLE_ROUTES_API_KEY`
+```powershell
+cd C:\Projects\FlexiNode
+flutter run -d chrome --dart-define-from-file=frontend/flexi_node/env.local.json
+```
 
-## Menjalankan Backend Lokal
+Catatan: setelah mengubah `env.local.json`, hentikan proses Flutter lalu jalankan ulang. Hot restart tidak cukup karena `--dart-define` dibaca saat compile.
+
+### Menjalankan Backend Lokal
 
 ```powershell
 cd C:\Projects\FlexiNode\backend
@@ -105,90 +163,68 @@ cd C:\Projects\FlexiNode
 npx firebase-tools emulators:start
 ```
 
-Jika ingin frontend memakai emulator, ubah sementara getter `_apiUrl` di `frontend/flexi_node/lib/data/demo_delivery_store.dart` ke URL emulator yang sudah disediakan di komentar file tersebut.
+Secara default frontend memakai backend cloud. Jika ingin memakai emulator lokal, ubah sementara getter `_apiUrl` di `frontend/flexi_node/lib/data/demo_delivery_store.dart` ke URL emulator yang sudah disediakan di komentar file tersebut.
 
-## Seeding Data
+## Build dan Deploy
 
-Jika Firestore cloud masih kosong:
-
-```powershell
-cd C:\Projects\FlexiNode\backend
-node seed-cloud.js
-```
-
-Pastikan kredensial Firebase Admin sudah benar sebelum menjalankan script seed.
-
-## Build Web
+Build Flutter Web:
 
 ```powershell
 cd C:\Projects\FlexiNode\frontend\flexi_node
 flutter build web --dart-define-from-file=env.local.json
 ```
 
-## Deploy
+Deploy Firebase Hosting:
 
-Deploy backend/functions:
+```powershell
+cd C:\Projects\FlexiNode
+npx firebase-tools deploy --only hosting
+```
+
+Deploy backend Functions:
 
 ```powershell
 cd C:\Projects\FlexiNode
 npx firebase-tools deploy --only functions
 ```
 
-Deploy Firestore rules:
+Deploy Firestore Rules:
 
 ```powershell
 npx firebase-tools deploy --only firestore:rules
 ```
 
-Deploy frontend hosting setelah `flutter build web`:
-
-```powershell
-npx firebase-tools deploy --only hosting
-```
-
-Deploy semuanya:
+Deploy semua layanan:
 
 ```powershell
 npx firebase-tools deploy
 ```
 
-## API Key Dan Keamanan
+## Alur Demo
 
-Jangan commit API key asli ke repo. Gunakan file lokal dan `--dart-define-from-file`.
+1. Buka aplikasi web atau jalankan aplikasi lokal.
+2. Masuk ke halaman driver, receiver, atau AI Chat sesuai skenario.
+3. Tekan `Demo Traffic` untuk mensimulasikan kemacetan.
+4. Buka offer pickup node dari sisi receiver.
+5. Terima tawaran reroute untuk mengalihkan paket ke mitra.
+6. Lihat perubahan status paket dan ETA.
+7. Gunakan AI Chat untuk menanyakan status, tujuan reroute, ETA, dan voucher.
+8. Jalankan QR flow untuk simulasi serah terima paket.
 
-Key yang perlu dibatasi di Google Cloud:
+## Catatan Keamanan
 
-- Maps JavaScript API key: batasi HTTP referrer ke `localhost`, `127.0.0.1`, dan domain Firebase Hosting.
-- Routes API key: batasi API restriction ke Routes API.
-- Geocoding API key: batasi API restriction ke Geocoding API.
-- Firebase client keys: boleh ada di client app secara konsep, tetapi tetap wajib didukung Firestore Rules/Auth Rules yang aman.
+API key asli tidak ditulis langsung di source code. Untuk menjalankan program, key disediakan melalui file lokal dan `--dart-define-from-file`.
 
-Jika GitHub Secret Scanning pernah mendeteksi key, rotate atau restrict key tersebut di Google Cloud Console.
+Google API key sebaiknya dibatasi dari Google Cloud Console:
 
-## Troubleshooting
+- Maps JavaScript API: batasi HTTP referrer ke domain localhost dan Firebase Hosting.
+- Routes API: batasi penggunaan hanya ke Routes API.
+- Geocoding API: batasi penggunaan hanya ke Geocoding API.
 
-### `Geocoding API returned REQUEST_DENIED`
+Jika satu key dipakai untuk Maps JavaScript, Routes, dan Geocoding, pastikan ketiga API tersebut diizinkan pada API restrictions.
 
-Biasanya karena Geocoding API belum aktif, billing belum aktif, HTTP referrer belum mengizinkan `localhost`, atau `GOOGLE_MAPS_API_KEY` belum diisi.
+## Dokumen Pendukung
 
-### ETA tetap `Sesuai jadwal`
+Jika menemui masalah saat setup atau demo, lihat:
 
-Ini normal jika belum ada realtime traffic check atau Routes API key belum tersedia. Tekan `Realtime Traffic` setelah `GOOGLE_ROUTES_API_KEY` valid.
-
-### Maps tidak muncul di Flutter Web
-
-Pastikan `web/maps_config.js` ada dan berisi `window.FLEXINODE_GOOGLE_MAPS_API_KEY`.
-
-### Android build gagal karena NDK
-
-Jika muncul pesan `NDK ... did not have a source.properties file`, hapus folder NDK yang disebutkan oleh Flutter lalu biarkan Android Gradle Plugin mengunduh ulang.
-
-## Alur Demo Cepat
-
-1. Jalankan frontend di Chrome.
-2. Masuk sebagai driver/receiver sesuai skenario.
-3. Buka AI Chat atau tracking.
-4. Tekan `Demo Traffic` untuk membuat delay.
-5. Buka offer dan accept pickup node.
-6. Cek AI Chat untuk pertanyaan ETA, voucher, dan tujuan reroute.
-7. Gunakan QR flow untuk simulasi handover driver, mitra, dan customer.
+- [TROUBLESHOOTING.md](TROUBLESHOOTING.md)

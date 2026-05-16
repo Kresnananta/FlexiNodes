@@ -5,22 +5,20 @@
       "name": "Flexi Node (Chrome)",
       "request": "launch",
       "type": "dart",
+      "cwd": "frontend/flexi_node",
       "args": [
         "-d",
         "chrome",
-        "--dart-define=FIREBASE_WEB_API_KEY=${env:FIREBASE_WEB_API_KEY}",
-        "--dart-define=GOOGLE_MAPS_API_KEY=${env:GOOGLE_MAPS_API_KEY}",
-        "--dart-define=GOOGLE_ROUTES_API_KEY=${env:GOOGLE_ROUTES_API_KEY}"
+        "--dart-define-from-file=env.local.json"
       ]
     },
     {
       "name": "Flexi Node (Android)",
       "request": "launch",
       "type": "dart",
+      "cwd": "frontend/flexi_node",
       "args": [
-        "--dart-define=FIREBASE_ANDROID_API_KEY=${env:FIREBASE_ANDROID_API_KEY}",
-        "--dart-define=GOOGLE_MAPS_API_KEY=${env:GOOGLE_MAPS_API_KEY}",
-        "--dart-define=GOOGLE_ROUTES_API_KEY=${env:GOOGLE_ROUTES_API_KEY}"
+        "--dart-define-from-file=env.local.json"
       ]
     }
   ]
