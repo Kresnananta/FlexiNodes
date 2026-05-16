@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../data/demo_delivery_store.dart';
+
 enum FlexiRole { receiver, driver, partner }
 
 class ChooseRolePage extends StatefulWidget {
@@ -11,6 +13,7 @@ class ChooseRolePage extends StatefulWidget {
 
 class _ChooseRolePageState extends State<ChooseRolePage> {
   FlexiRole selectedRole = FlexiRole.receiver;
+  bool isResettingDemo = false;
 
   static const Color background = Color(0xFFFFFFFF);
   static const Color surface = Color(0xFFFFFFFF);
@@ -76,13 +79,36 @@ class _ChooseRolePageState extends State<ChooseRolePage> {
                     ),
                   ),
                   const SizedBox(height: 32),
+                  AnimatedBuilder(
+                    animation: demoDeliveryStore,
+                    builder: (context, _) {
+                      final store = demoDeliveryStore;
+                      final canReset =
+                          store.status != DemoDeliveryStatus.onDelivery ||
+                          store.delayMinutes > 0 ||
+                          store.offerCreated ||
+                          store.homeDeliverySelected;
+
+                      if (!canReset) return const SizedBox.shrink();
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 24),
+                        child: _DemoResetCard(
+                          statusText: store.statusText,
+                          isResetting: isResettingDemo,
+                          onReset: _resetDemo,
+                        ),
+                      );
+                    },
+                  ),
                   _RoleCard(
                     isSelected: selectedRole == FlexiRole.receiver,
                     icon: Icons.inventory_2_outlined,
                     title: 'Receiver /\nCustomer',
                     description:
                         'Track incoming packages, manage delivery addresses, and coordinate drop-offs seamlessly.',
-                    onTap: () => setState(() => selectedRole = FlexiRole.receiver),
+                    onTap: () =>
+                        setState(() => selectedRole = FlexiRole.receiver),
                   ),
                   const SizedBox(height: 18),
                   _RoleCard(
@@ -91,7 +117,8 @@ class _ChooseRolePageState extends State<ChooseRolePage> {
                     title: 'Driver / Courier',
                     description:
                         'Access optimized routes, manage multiple deliveries, and scan packages at node locations.',
-                    onTap: () => setState(() => selectedRole = FlexiRole.driver),
+                    onTap: () =>
+                        setState(() => selectedRole = FlexiRole.driver),
                   ),
                   const SizedBox(height: 24),
                   const Row(
@@ -114,7 +141,8 @@ class _ChooseRolePageState extends State<ChooseRolePage> {
                   const SizedBox(height: 24),
                   _PartnerCard(
                     isSelected: selectedRole == FlexiRole.partner,
-                    onTap: () => setState(() => selectedRole = FlexiRole.partner),
+                    onTap: () =>
+                        setState(() => selectedRole = FlexiRole.partner),
                   ),
                 ],
               ),
@@ -123,7 +151,9 @@ class _ChooseRolePageState extends State<ChooseRolePage> {
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
               decoration: BoxDecoration(
                 color: surface.withOpacity(0.96),
-                border: const Border(top: BorderSide(color: surfaceContainer, width: 1)),
+                border: const Border(
+                  top: BorderSide(color: surfaceContainer, width: 1),
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.04),
@@ -175,6 +205,111 @@ class _ChooseRolePageState extends State<ChooseRolePage> {
         break;
     }
   }
+
+  Future<void> _resetDemo() async {
+    if (isResettingDemo) return;
+
+    setState(() => isResettingDemo = true);
+    await demoDeliveryStore.resetDemo();
+    if (!mounted) return;
+    setState(() => isResettingDemo = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Demo delivery has been reset.')),
+    );
+  }
+}
+
+class _DemoResetCard extends StatelessWidget {
+  const _DemoResetCard({
+    required this.statusText,
+    required this.isResetting,
+    required this.onReset,
+  });
+
+  final String statusText;
+  final bool isResetting;
+  final Future<void> Function() onReset;
+
+  static const Color surfaceLow = _ChooseRolePageState.surfaceLow;
+  static const Color surfaceContainerHigh =
+      _ChooseRolePageState.surfaceContainerHigh;
+  static const Color primary = _ChooseRolePageState.primary;
+  static const Color primaryContainer = _ChooseRolePageState.primaryContainer;
+  static const Color textMain = _ChooseRolePageState.textMain;
+  static const Color textMuted = _ChooseRolePageState.textMuted;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: surfaceLow,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: surfaceContainerHigh),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.restart_alt, color: primary, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Demo state: $statusText',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: textMain,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Start from a clean delivery, or continue with the current demo state.',
+            style: TextStyle(
+              color: textMuted,
+              fontSize: 12.5,
+              height: 1.4,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 44,
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: isResetting ? null : () => onReset(),
+              icon: isResetting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh, size: 18),
+              label: Text(isResetting ? 'Resetting...' : 'Reset Demo'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: primary,
+                side: const BorderSide(color: primaryContainer, width: 1.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _RoleCard extends StatelessWidget {
@@ -194,7 +329,8 @@ class _RoleCard extends StatelessWidget {
 
   static const Color surface = _ChooseRolePageState.surface;
   static const Color surfaceLow = _ChooseRolePageState.surfaceLow;
-  static const Color surfaceContainerHigh = _ChooseRolePageState.surfaceContainerHigh;
+  static const Color surfaceContainerHigh =
+      _ChooseRolePageState.surfaceContainerHigh;
   static const Color primary = _ChooseRolePageState.primary;
   static const Color primaryContainer = _ChooseRolePageState.primaryContainer;
   static const Color textMain = _ChooseRolePageState.textMain;
@@ -222,7 +358,7 @@ class _RoleCard extends StatelessWidget {
                 color: Colors.black.withOpacity(isSelected ? 0.06 : 0.035),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
-              )
+              ),
             ],
           ),
           child: Row(
@@ -233,7 +369,9 @@ class _RoleCard extends StatelessWidget {
                 width: 62,
                 height: 62,
                 decoration: BoxDecoration(
-                  color: isSelected ? primaryContainer : surfaceContainerHigh.withOpacity(0.65),
+                  color: isSelected
+                      ? primaryContainer
+                      : surfaceContainerHigh.withOpacity(0.65),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -271,7 +409,9 @@ class _RoleCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Icon(
-                isSelected ? Icons.check_circle_outline : Icons.radio_button_unchecked,
+                isSelected
+                    ? Icons.check_circle_outline
+                    : Icons.radio_button_unchecked,
                 color: isSelected ? primary : Colors.transparent,
                 size: 34,
               ),
@@ -284,17 +424,15 @@ class _RoleCard extends StatelessWidget {
 }
 
 class _PartnerCard extends StatelessWidget {
-  const _PartnerCard({
-    required this.isSelected,
-    required this.onTap,
-  });
+  const _PartnerCard({required this.isSelected, required this.onTap});
 
   final bool isSelected;
   final VoidCallback onTap;
 
   static const Color surface = _ChooseRolePageState.surface;
   static const Color surfaceLow = _ChooseRolePageState.surfaceLow;
-  static const Color surfaceContainerHigh = _ChooseRolePageState.surfaceContainerHigh;
+  static const Color surfaceContainerHigh =
+      _ChooseRolePageState.surfaceContainerHigh;
   static const Color primary = _ChooseRolePageState.primary;
   static const Color textMain = _ChooseRolePageState.textMain;
   static const Color textMuted = _ChooseRolePageState.textMuted;
@@ -321,7 +459,7 @@ class _PartnerCard extends StatelessWidget {
                 color: Colors.black.withOpacity(0.035),
                 blurRadius: 10,
                 offset: const Offset(0, 3),
-              )
+              ),
             ],
           ),
           child: Row(
@@ -333,7 +471,11 @@ class _PartnerCard extends StatelessWidget {
                   color: surfaceContainerHigh.withOpacity(0.65),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.storefront_outlined, color: textMuted, size: 30),
+                child: const Icon(
+                  Icons.storefront_outlined,
+                  color: textMuted,
+                  size: 30,
+                ),
               ),
               const SizedBox(width: 18),
               const Expanded(
