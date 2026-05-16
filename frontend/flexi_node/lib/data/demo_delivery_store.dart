@@ -97,6 +97,7 @@ class DemoDeliveryStore extends ChangeNotifier {
   }
 
   final String _deliveryId = 'paket_001';
+  static const String demoReceiverId = 'demo_user_123';
 
   static const List<DemoPickupNode> fallbackNodes = [
     DemoPickupNode(
@@ -147,7 +148,7 @@ class DemoDeliveryStore extends ChangeNotifier {
   DemoDeliveryStatus status = DemoDeliveryStatus.onDelivery;
 
   String orderId = 'paket_001';
-  String receiverName = 'Budiman';
+  String receiverName = 'Customer';
   String receiverEmail = 'andika@example.com';
   String receiverAddress = '';
   String driverName = 'Rizky Fahmi';
@@ -307,8 +308,22 @@ class DemoDeliveryStore extends ChangeNotifier {
 
             final String rId = data['receiverId'] as String? ?? '';
             final String dId = data['driverId'] as String? ?? '';
+            final deliveryReceiverName =
+                data['receiverName']?.toString() ??
+                data['customerName']?.toString();
 
-            if (rId.isNotEmpty) _fetchReceiverInfo(rId);
+            if (deliveryReceiverName != null &&
+                deliveryReceiverName.trim().isNotEmpty) {
+              receiverName = deliveryReceiverName;
+            }
+            if (rId.isNotEmpty) {
+              _fetchReceiverInfo(
+                rId,
+                applyProfileName:
+                    deliveryReceiverName == null ||
+                    deliveryReceiverName.trim().isEmpty,
+              );
+            }
             if (dId.isNotEmpty) {
               driverId = dId;
               _listenToDriverInfo(dId);
@@ -704,7 +719,7 @@ class DemoDeliveryStore extends ChangeNotifier {
       'type': 'receiver_pickup',
       'deliveryId': _deliveryId,
       'orderId': orderId,
-      'receiverId': FirebaseAuth.instance.currentUser?.uid ?? 'receiver_demo',
+      'receiverId': demoReceiverId,
       'receiverName': receiverName,
       'otpCode': safeOtpCode,
       'nodeId': nodeId,
@@ -1056,13 +1071,6 @@ class DemoDeliveryStore extends ChangeNotifier {
   }
 
   Future<void> resetDemo() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-
-    if (uid == null) {
-      _localReset();
-      return;
-    }
-
     try {
       final defaultNode =
           (pickupNodes.isEmpty ? fallbackNodes : pickupNodes).first;
@@ -1071,7 +1079,7 @@ class DemoDeliveryStore extends ChangeNotifier {
           .collection('deliveries')
           .doc(_deliveryId)
           .set({
-            'receiverId': uid,
+            'receiverId': demoReceiverId,
             'driverId': driverId,
             'status': 'on_delivery',
             'delayMinutes': 0,
@@ -1249,21 +1257,35 @@ class DemoDeliveryStore extends ChangeNotifier {
     }
   }
 
-  Future<void> _fetchReceiverInfo(String uid) async {
+  Future<void> _fetchReceiverInfo(
+    String uid, {
+    bool applyProfileName = true,
+  }) async {
     try {
       final doc = await FirebaseFirestore.instance
           .collection('users')
           .doc(uid)
           .get();
-      if (doc.exists) {
-        final data = doc.data();
-        receiverName = data?['name'] ?? receiverName;
-        receiverEmail = data?['email'] ?? receiverEmail;
+      var data = doc.data();
+
+      if (!doc.exists && uid != demoReceiverId) {
+        final demoDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(demoReceiverId)
+            .get();
+        data = demoDoc.data();
+      }
+
+      if (data != null) {
+        if (applyProfileName) {
+          receiverName = data['name'] ?? receiverName;
+        }
+        receiverEmail = data['email'] ?? receiverEmail;
         receiverAddress =
-            data?['homeAddress']?.toString() ??
-            data?['address']?.toString() ??
+            data['homeAddress']?.toString() ??
+            data['address']?.toString() ??
             receiverAddress;
-        final homeLocation = data?['homeLocation'];
+        final homeLocation = data['homeLocation'];
         receiverLatitude = _readGeoLatitude(homeLocation) ?? receiverLatitude;
         receiverLongitude =
             _readGeoLongitude(homeLocation) ?? receiverLongitude;
