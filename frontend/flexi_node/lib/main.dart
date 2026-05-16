@@ -31,7 +31,17 @@ void main() async {
 
   // REAL FIREBASE CONFIG
   // Use this for deployed Firebase / real phone testing.
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } on FirebaseException catch (e) {
+    if (e.code != 'duplicate-app') {
+      rethrow;
+    }
+
+    Firebase.app();
+  }
 
   // FIREBASE EMULATOR CONFIG
   // Only use this if you are testing with Firebase Emulator locally.
