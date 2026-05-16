@@ -181,6 +181,7 @@ class DemoDeliveryStore extends ChangeNotifier {
   bool isChatLoading = false;
   bool isCheckingRealtimeTraffic = false;
   String? realtimeTrafficError;
+  bool userSelectedPickupNode = false;
 
   List<AiChatMessage> aiMessages = [
     const AiChatMessage(
@@ -247,6 +248,7 @@ class DemoDeliveryStore extends ChangeNotifier {
   }
 
   void selectPickupNode(DemoPickupNode node) {
+    userSelectedPickupNode = true;
     nodeId = node.id;
     nodeName = node.name;
     nodeDistance = node.distance;
@@ -329,6 +331,7 @@ class DemoDeliveryStore extends ChangeNotifier {
               _listenToDriverInfo(dId);
             }
 
+            final String docStatus = data['status'] as String? ?? 'on_delivery';
             final targetLocation = data['targetLocation'];
             receiverLatitude =
                 _readGeoLatitude(targetLocation) ??
@@ -354,20 +357,21 @@ class DemoDeliveryStore extends ChangeNotifier {
               offerReason = aiOffer['reason']?.toString() ?? offerReason;
             }
 
-            nodeId = data['selectedNodeId'] as String? ?? nodeId;
-            nodeName = data['selectedNodeName'] as String? ?? nodeName;
-            nodeLatitude =
-                (data['selectedNodeLat'] as num?)?.toDouble() ?? nodeLatitude;
-            nodeLongitude =
-                (data['selectedNodeLng'] as num?)?.toDouble() ?? nodeLongitude;
+            if (!userSelectedPickupNode) {
+              nodeId = data['selectedNodeId'] as String? ?? nodeId;
+              nodeName = data['selectedNodeName'] as String? ?? nodeName;
+              nodeLatitude =
+                  (data['selectedNodeLat'] as num?)?.toDouble() ?? nodeLatitude;
+              nodeLongitude =
+                  (data['selectedNodeLng'] as num?)?.toDouble() ??
+                  nodeLongitude;
+            }
             _rebuildPickupNodes();
             _applySelectedNodeFromList(keepOfferVoucher: offerCreated);
 
             otpCode = data['otpCode']?.toString() ?? otpCode;
             homeDeliverySelected =
                 data['homeDeliverySelected'] as bool? ?? homeDeliverySelected;
-
-            final String docStatus = data['status'] as String? ?? 'on_delivery';
 
             if (docStatus == 'on_delivery' &&
                 delayMinutes > 15 &&
@@ -505,18 +509,22 @@ class DemoDeliveryStore extends ChangeNotifier {
 
             offerCreated = true;
             offerAccepted = data['status'] == 'accepted' || offerAccepted;
-            nodeId = data['nodeId']?.toString() ?? nodeId;
-            nodeName = data['nodeName']?.toString() ?? nodeName;
-            nodeDistance = _formatMeters(_readInt(data['distanceMeters']));
-            voucherAmount = _voucherAmountFromOffer(
-              data,
-              fallback: voucherAmount,
-            );
+            if (!userSelectedPickupNode) {
+              nodeId = data['nodeId']?.toString() ?? nodeId;
+              nodeName = data['nodeName']?.toString() ?? nodeName;
+              nodeDistance = _formatMeters(_readInt(data['distanceMeters']));
+              voucherAmount = _voucherAmountFromOffer(
+                data,
+                fallback: voucherAmount,
+              );
+            }
             voucherCode = data['voucherCode']?.toString() ?? voucherCode;
             offerReason = data['reason']?.toString() ?? offerReason;
 
             _rebuildPickupNodes();
-            _applySelectedNodeFromList(keepOfferVoucher: true);
+            _applySelectedNodeFromList(
+              keepOfferVoucher: userSelectedPickupNode,
+            );
 
             if (status == DemoDeliveryStatus.onDelivery &&
                 data['status'] == 'pending' &&
@@ -739,11 +747,18 @@ class DemoDeliveryStore extends ChangeNotifier {
   }
 
   Future<void> simulateHeavyTraffic() async {
+    homeDeliverySelected = false;
+    notifyListeners();
+
     try {
       await http.post(
         Uri.parse('$_apiUrl/simulate-traffic'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'deliveryId': _deliveryId, 'delayMinutes': 20}),
+        body: jsonEncode({
+          'deliveryId': _deliveryId,
+          'delayMinutes': 20,
+          'homeDeliverySelected': false,
+        }),
       );
     } catch (e) {
       debugPrint('Error simulating traffic: $e');
@@ -776,6 +791,7 @@ class DemoDeliveryStore extends ChangeNotifier {
           .update({
             'delayMinutes': realtimeDelay,
             'current_traffic_delay': realtimeDelay,
+            'homeDeliverySelected': false,
             'trafficMode': 'realtime',
             'trafficDurationSeconds': result.durationSeconds,
             'trafficStaticDurationSeconds': result.staticDurationSeconds,
@@ -850,10 +866,60 @@ class DemoDeliveryStore extends ChangeNotifier {
           'nodeLng': nodeLongitude,
         }),
       );
+      await _syncAcceptedPickupSelection();
     } catch (e) {
       debugPrint('Error accepting offer: $e');
-      _localAcceptOffer();
+      try {
+        await _syncAcceptedPickupSelection();
+      } catch (syncError) {
+        debugPrint('Error syncing selected pickup node: $syncError');
+        _localAcceptOffer();
+      }
     }
+  }
+
+  Future<void> _syncAcceptedPickupSelection() async {
+    final selected = selectedNode;
+    selectPickupNode(selected);
+
+    final voucherType = _voucherTypeForAmount(voucherAmount);
+    final update = <String, dynamic>{
+      'nodeId': nodeId,
+      'nodeName': nodeName,
+      'distanceMeters': _parseMeters(nodeDistance),
+      'cashback_amount': voucherAmount,
+      'voucherAmount': voucherAmount,
+      'voucherType': voucherType,
+      'status': 'accepted',
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+
+    await FirebaseFirestore.instance
+        .collection('deliveries')
+        .doc(_deliveryId)
+        .update({
+          'status': 'rerouted_to_node',
+          'selectedNodeId': nodeId,
+          'selectedNodeName': nodeName,
+          'selectedNodeLat': nodeLatitude,
+          'selectedNodeLng': nodeLongitude,
+          'voucherAmount': voucherAmount,
+          'cashbackAmount': voucherAmount,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+    final offers = await FirebaseFirestore.instance
+        .collection('offers')
+        .where('deliveryId', isEqualTo: _deliveryId)
+        .get();
+
+    if (offers.docs.isEmpty) return;
+
+    final batch = FirebaseFirestore.instance.batch();
+    for (final offer in offers.docs) {
+      batch.update(offer.reference, update);
+    }
+    await batch.commit();
   }
 
   Future<void> confirmDropoff() async {
@@ -1212,6 +1278,7 @@ class DemoDeliveryStore extends ChangeNotifier {
         (pickupNodes.isEmpty ? fallbackNodes : pickupNodes).first;
 
     status = DemoDeliveryStatus.onDelivery;
+    userSelectedPickupNode = false;
     trafficStatus = 'normal';
     delayMinutes = 0;
     offerCreated = false;
@@ -1588,6 +1655,12 @@ class DemoDeliveryStore extends ChangeNotifier {
   static String _walkingTime(int meters) {
     final minutes = math.max(1, (meters / 80).ceil());
     return '$minutes min';
+  }
+
+  static String _voucherTypeForAmount(int amount) {
+    if (amount >= 10000) return 'discount_10';
+    if (amount >= 5000) return 'discount_5';
+    return 'discount_4';
   }
 
   static String _formatRupiah(int amount) {
