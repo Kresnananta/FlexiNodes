@@ -22,3 +22,4 @@ Thumbs.db
 frontend/.env
 frontend/flexi_node/web/maps_config.js
 frontend/flexi_node/env.local.json
+frontend/flexi_node/android/app/google-services.json
