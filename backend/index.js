@@ -373,48 +373,61 @@ function formatDistance(meters) {
 }
 
 function buildChatContext(deliveryId, deliveryData = {}, offerData = {}) {
+  const status = deliveryData.status || "Unknown";
   const delayMinutes = Number(firstPresent(
     deliveryData.delayMinutes,
     deliveryData.current_traffic_delay,
     0
   ));
+  const normalizedDelay = Number.isFinite(delayMinutes) ? delayMinutes : 0;
+  const hasActiveOffer = ["pending", "accepted"].includes(offerData.status);
+  const hasRerouteContext = [
+    "offer_pending",
+    "rerouted_to_node",
+    "delivered_to_node",
+    "completed",
+  ].includes(status) || hasActiveOffer;
   const voucherAmount = firstPresent(
     deliveryData.voucherAmount,
     deliveryData.cashbackAmount,
     offerData.voucherAmount,
     offerData.cashback_amount
   );
-  const selectedNodeName = firstPresent(
+  const selectedNodeName = hasRerouteContext ? firstPresent(
     deliveryData.selectedNodeName,
     offerData.nodeName,
     deliveryData.nodeName
-  );
-  const distanceText = formatDistance(firstPresent(
+  ) : null;
+  const distanceText = hasRerouteContext ? formatDistance(firstPresent(
     offerData.distanceMeters,
     deliveryData.distanceMeters
-  ));
-  const status = deliveryData.status || "Unknown";
+  )) : null;
 
   return {
     deliveryId,
     status,
+    hasRerouteContext,
     receiverName: firstPresent(deliveryData.receiverName, "Customer"),
     receiverAddress: firstPresent(deliveryData.receiverAddress, deliveryData.address),
     selectedNodeName,
-    selectedNodeId: firstPresent(deliveryData.selectedNodeId, offerData.nodeId),
+    selectedNodeId: hasRerouteContext ? firstPresent(deliveryData.selectedNodeId, offerData.nodeId) : null,
     distanceText,
-    delayMinutes: Number.isFinite(delayMinutes) ? delayMinutes : 0,
-    trafficStatus: firstPresent(deliveryData.trafficStatus, deliveryData.trafficMode),
-    voucherText: formatRupiah(voucherAmount),
-    voucherCode: firstPresent(deliveryData.voucherCode, offerData.voucherCode),
-    offerStatus: offerData.status,
-    offerReason: offerData.reason,
+    delayMinutes: normalizedDelay,
+    trafficStatus: normalizedDelay > 0
+      ? firstPresent(deliveryData.trafficStatus, deliveryData.trafficMode, "terdeteksi delay")
+      : "normal",
+    voucherText: hasRerouteContext ? formatRupiah(voucherAmount) : null,
+    voucherCode: hasRerouteContext ? firstPresent(deliveryData.voucherCode, offerData.voucherCode) : null,
+    offerStatus: hasActiveOffer ? offerData.status : null,
+    offerReason: hasActiveOffer ? offerData.reason : null,
     etaText: firstPresent(
       deliveryData.estimatedArrivalText,
       deliveryData.estimatedArrival,
       deliveryData.eta,
       deliveryData.etaText
-    ),
+    ) || (normalizedDelay > 0
+      ? `bertambah sekitar ${normalizedDelay} menit`
+      : "sesuai jadwal, jam spesifik belum tercatat"),
     otpCode: deliveryData.otpCode,
   };
 }
@@ -434,7 +447,14 @@ function buildRuleBasedChatResponse(context, userMessage) {
     : "Detail voucher belum tercatat, jadi silakan cek notifikasi saat offer selesai diproses.";
 
   if (asksVoucher) {
+    if (!context.hasRerouteContext) {
+      return `Belum ada voucher untuk paket ${context.deliveryId} karena paket belum dialihkan ke mitra. Status paket masih on delivery dan kondisi trafik tercatat normal.`;
+    }
     return `${voucherText} Paket ${context.deliveryId} ${context.selectedNodeName ? `dialihkan ke ${nodeText}` : "sedang diproses untuk rute alternatif"} karena ${delayText}.`;
+  }
+
+  if (asksReroute && !context.hasRerouteContext) {
+    return `Paket ${context.deliveryId} belum dialihkan ke mitra. Statusnya masih on delivery menuju alamat penerima, kondisi trafik tercatat normal, dan ${delayText}.`;
   }
 
   if (asksReroute || context.status === "rerouted_to_node") {
@@ -473,7 +493,6 @@ app.post('/chat', async (req, res) => {
     const offerDocs = offersSnapshot.docs.map((doc) => doc.data());
     const offerData = offerDocs.find((offer) => offer.status === "accepted")
       || offerDocs.find((offer) => offer.status === "pending")
-      || offerDocs[0]
       || null;
     const chatContext = buildChatContext(deliveryId, deliveryData || {}, offerData || {});
 
@@ -499,22 +518,24 @@ Aturan respons:
 - Sertakan alasan, estimasi dampak, kompensasi voucher, dan aksi berikutnya jika datanya tersedia.
 - Jangan mengarang alamat, ETA jam spesifik, nama driver, OTP, atau kode voucher. Jika belum ada data, katakan belum tercatat.
 - Hindari status teknis mentah seperti "rerouted_to_node" kecuali pelanggan memintanya.
+- Jika Status Teknis adalah on_delivery, Delay Kemacetan 0, dan Reroute Aktif adalah tidak, jangan menyebut ada kemacetan atau paket dialihkan.
 - Buat respons singkat: 2-4 kalimat atau bullet pendek bila perlu.
 
 Data Paket Saat Ini:
 - ID Paket: ${chatContext.deliveryId}
 - Status Teknis: ${chatContext.status}
+- Reroute Aktif: ${chatContext.hasRerouteContext ? "ya" : "tidak"}
 - Penerima: ${chatContext.receiverName}
 - Alamat Penerima: ${chatContext.receiverAddress || "belum tercatat"}
 - Node/Mitra Tujuan Reroute: ${chatContext.selectedNodeName || "belum tercatat"}
 - Jarak Node dari Tujuan: ${chatContext.distanceText || "belum tercatat"}
 - Delay Kemacetan: ${chatContext.delayMinutes} menit
 - Kondisi Trafik: ${chatContext.trafficStatus || "belum tercatat"}
-- Estimasi Tiba: ${chatContext.etaText || (chatContext.delayMinutes > 0 ? `bertambah sekitar ${chatContext.delayMinutes} menit` : "belum tercatat")}
+- Estimasi Tiba: ${chatContext.etaText}
 - Voucher: ${chatContext.voucherText || "belum tercatat"}
 - Kode Voucher: ${chatContext.voucherCode || "belum tercatat"}
 - Status Offer: ${chatContext.offerStatus || "belum tercatat"}
-- Alasan Offer: ${chatContext.offerReason || "kemacetan di rute awal"}
+- Alasan Offer: ${chatContext.offerReason || "belum tercatat"}
 
 Riwayat Chat Terbaru:
 ${chatHistory}
