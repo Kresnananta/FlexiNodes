@@ -122,11 +122,45 @@ class _DemoControl extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!store.offerCreated) {
-      return FlexiPrimaryButton(
-        label: 'Simulate Heavy Traffic',
-        icon: Icons.traffic_outlined,
-        backgroundColor: FlexiColors.orange,
-        onPressed: store.simulateHeavyTraffic,
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: FlexiPrimaryButton(
+                  label: store.isCheckingRealtimeTraffic
+                      ? 'Checking...'
+                      : 'Realtime Traffic',
+                  icon: Icons.online_prediction,
+                  onPressed: () => store.checkRealtimeTraffic(),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FlexiPrimaryButton(
+                  label: 'Demo Traffic',
+                  icon: Icons.traffic_outlined,
+                  backgroundColor: FlexiColors.orange,
+                  onPressed: store.simulateHeavyTraffic,
+                ),
+              ),
+            ],
+          ),
+          if (store.realtimeTrafficError != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              store.realtimeTrafficError!,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: FlexiColors.red,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ],
       );
     }
 
@@ -404,6 +438,8 @@ class _ActiveRouteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final routeBadge = _routeBadgeText(store);
+
     return FlexiCard(
       padding: EdgeInsets.zero,
       onTap: () => Navigator.pushNamed(context, '/rerouted-navigation'),
@@ -434,19 +470,20 @@ class _ActiveRouteCard extends StatelessWidget {
                           TextSpan(
                             children: [
                               TextSpan(
-                                text: store.shouldRouteToNode ? '8\n' : '20\n',
+                                text: '${routeBadge.value}\n',
                                 style: const TextStyle(
                                   color: FlexiColors.text,
-                                  fontSize: 21,
+                                  fontSize: 20,
                                   fontWeight: FontWeight.w900,
                                   height: 1.0,
                                 ),
                               ),
-                              const TextSpan(
-                                text: 'mins',
-                                style: TextStyle(
+                              TextSpan(
+                                text: routeBadge.label,
+                                style: const TextStyle(
                                   color: FlexiColors.muted,
-                                  fontSize: 11,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
                                 ),
                               ),
                             ],
@@ -504,6 +541,26 @@ class _ActiveRouteCard extends StatelessWidget {
       ),
     );
   }
+
+  _RouteBadgeText _routeBadgeText(DemoDeliveryStore store) {
+    if (store.delayMinutes > 0) {
+      return _RouteBadgeText('${store.delayMinutes}', 'min delay');
+    }
+
+    if (store.shouldRouteToNode) {
+      final minutes = RegExp(r'\d+').firstMatch(store.walkingTime)?.group(0);
+      return _RouteBadgeText(minutes ?? '-', 'min walk');
+    }
+
+    return const _RouteBadgeText('On', 'time');
+  }
+}
+
+class _RouteBadgeText {
+  const _RouteBadgeText(this.value, this.label);
+
+  final String value;
+  final String label;
 }
 
 class _RouteText extends StatelessWidget {

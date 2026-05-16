@@ -5,9 +5,11 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 
 import '../services/geocoding_service.dart';
+import '../services/routes_api_service.dart';
 
 enum DemoDeliveryStatus {
   onDelivery,
@@ -176,6 +178,8 @@ class DemoDeliveryStore extends ChangeNotifier {
   bool dropoffConfirmed = false;
   bool homeDeliverySelected = false;
   bool isChatLoading = false;
+  bool isCheckingRealtimeTraffic = false;
+  String? realtimeTrafficError;
 
   List<AiChatMessage> aiMessages = [
     const AiChatMessage(
@@ -732,6 +736,54 @@ class DemoDeliveryStore extends ChangeNotifier {
     }
   }
 
+  Future<void> checkRealtimeTraffic() async {
+    if (isCheckingRealtimeTraffic) return;
+
+    isCheckingRealtimeTraffic = true;
+    realtimeTrafficError = null;
+    notifyListeners();
+
+    try {
+      final result = await RoutesApiService(apiKey: _geocodingApiKey)
+          .getDrivingRoute(
+            origin: LatLng(driverLatitude, driverLongitude),
+            destination: LatLng(receiverLatitude, receiverLongitude),
+            routingPreference: 'TRAFFIC_AWARE',
+          );
+      final realtimeDelay = result.delayMinutes;
+
+      delayMinutes = realtimeDelay;
+      trafficStatus = realtimeDelay > 15 ? 'heavy' : 'normal';
+
+      await FirebaseFirestore.instance
+          .collection('deliveries')
+          .doc(_deliveryId)
+          .update({
+            'delayMinutes': realtimeDelay,
+            'current_traffic_delay': realtimeDelay,
+            'trafficMode': 'realtime',
+            'trafficDurationSeconds': result.durationSeconds,
+            'trafficStaticDurationSeconds': result.staticDurationSeconds,
+            'trafficCheckedAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+
+      _addLocalAiMessage(
+        sender: 'Driver',
+        type: 'driver',
+        message: realtimeDelay > 15
+            ? 'Realtime traffic check found ~$realtimeDelay minutes delay.'
+            : 'Realtime traffic check found no heavy delay.',
+      );
+    } catch (e) {
+      realtimeTrafficError = e.toString().replaceFirst('Exception: ', '');
+      debugPrint('Error checking realtime traffic: $e');
+    } finally {
+      isCheckingRealtimeTraffic = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> keepHomeDelivery() async {
     homeDeliverySelected = true;
     offerAccepted = false;
@@ -1020,18 +1072,56 @@ class DemoDeliveryStore extends ChangeNotifier {
           .doc(_deliveryId)
           .set({
             'receiverId': uid,
-            'driverId': 'driver_123',
+            'driverId': driverId,
             'status': 'on_delivery',
             'delayMinutes': 0,
+            'current_traffic_delay': 0,
+            'trafficMode': 'demo_reset',
+            'homeDeliverySelected': false,
+            'selectedNodeId': defaultNode.id,
+            'selectedNodeName': defaultNode.name,
+            'selectedNodeLat': defaultNode.latitude,
+            'selectedNodeLng': defaultNode.longitude,
             'targetLocation': const GeoPoint(-7.2815, 112.7525),
             'updatedAt': FieldValue.serverTimestamp(),
           });
 
+      await _deleteDemoDocs(
+        collection: 'offers',
+        field: 'deliveryId',
+        value: _deliveryId,
+      );
+      await _deleteDemoDocs(
+        collection: 'AI_message',
+        field: 'deliveryId',
+        value: _deliveryId,
+      );
+
       selectPickupNode(defaultNode);
+      _localReset();
     } catch (e) {
       debugPrint('Error resetting demo: $e');
       _localReset();
     }
+  }
+
+  Future<void> _deleteDemoDocs({
+    required String collection,
+    required String field,
+    required String value,
+  }) async {
+    final snapshot = await FirebaseFirestore.instance
+        .collection(collection)
+        .where(field, isEqualTo: value)
+        .get();
+
+    if (snapshot.docs.isEmpty) return;
+
+    final batch = FirebaseFirestore.instance.batch();
+    for (final doc in snapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
   }
 
   void _localSetOfferPending() {

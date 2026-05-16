@@ -475,7 +475,6 @@ class _RealRouteMapPageState extends State<RealRouteMapPage> {
                 _BottomMapActions(
                   isDriverMode: isDriverMode,
                   store: store,
-                  onSimulateTraffic: store.simulateHeavyTraffic,
                   onConfirmDropoff: store.confirmDropoff,
                 ),
               ],
@@ -668,13 +667,11 @@ class _BottomMapActions extends StatelessWidget {
   const _BottomMapActions({
     required this.isDriverMode,
     required this.store,
-    required this.onSimulateTraffic,
     required this.onConfirmDropoff,
   });
 
   final bool isDriverMode;
   final DemoDeliveryStore store;
-  final VoidCallback onSimulateTraffic;
   final VoidCallback onConfirmDropoff;
 
   @override
@@ -682,11 +679,45 @@ class _BottomMapActions extends StatelessWidget {
     if (isDriverMode) {
       if (!store.offerCreated) {
         return _BottomContainer(
-          child: FlexiPrimaryButton(
-            label: 'Simulate Heavy Traffic',
-            icon: Icons.traffic,
-            backgroundColor: FlexiColors.orange,
-            onPressed: onSimulateTraffic,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: FlexiPrimaryButton(
+                      label: store.isCheckingRealtimeTraffic
+                          ? 'Checking...'
+                          : 'Realtime Traffic',
+                      icon: Icons.online_prediction,
+                      onPressed: () => store.checkRealtimeTraffic(),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FlexiPrimaryButton(
+                      label: 'Demo Traffic',
+                      icon: Icons.traffic,
+                      backgroundColor: FlexiColors.orange,
+                      onPressed: store.simulateHeavyTraffic,
+                    ),
+                  ),
+                ],
+              ),
+              if (store.realtimeTrafficError != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  store.realtimeTrafficError!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: FlexiColors.red,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ],
           ),
         );
       }
